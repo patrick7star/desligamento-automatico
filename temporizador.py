@@ -51,7 +51,24 @@ class Temporizador:
 
    def agendado(self):
       "tempo agendado para contagem regressiva"
-      return self._limite
+      # primeiro atualizando o tempo ...
+      self(); return self._limite
+
+   def __lt__(self, tempo) -> bool:
+      # primeiro atualizando o tempo ...
+      self()
+      # contagem atual está em ...
+      contagem = self._limite - self._atual
+      return contagem <= tempo
+   ...
+
+   def __gt__(self, tempo) -> bool:
+      # primeiro atualizando o tempo ...
+      self()
+      # contagem atual está em ...
+      contagem = self._limite - self._atual
+      return contagem > tempo
+   ...
 ...
 
 def stringtime_to_segundos(string):
@@ -91,6 +108,8 @@ def stringtime_to_segundos(string):
 
 if __name__ == "__main__":
    import utilitarios.src.testes as UT
+   from time import sleep 
+
    def strtime_to_seg():
       argumentos = (
          "15min", "38 segundos", "3.5 horas",
@@ -128,9 +147,24 @@ if __name__ == "__main__":
       ...
    ...
 
+   def comparaTemporizador():
+      tempo = stringtime_to_segundos("1.3min")
+      a = Temporizador(tempo)
+      sleep(20)
+      # está em 58seg
+      print("agora têm que ser menor que 59.")
+      assert a < 59
+      print("agora têm que ser menor que 51.")
+      sleep(7)
+      assert a < 51
+   ...
+
+   """
    UT.executa_teste(strtime_to_seg)
    try:
       UT.executa_teste(usa_temporizador)
    except:
       print("perfeito!!!")
+   """
+   UT.executa_teste(comparaTemporizador)
 ...

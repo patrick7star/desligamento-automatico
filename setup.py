@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3.10 -BO
+#!/usr/bin/python3 -BO
 
 """
  Execução em sí do programa. Lê do terminal
@@ -30,6 +30,9 @@ if __debug__:
 
 if type(tempo_demandado) == str:
    segundos = stringtime_to_segundos(tempo_demandado)
+   # pós conversão, converte o argumento sem arredondar?
+   if __debug__:
+      print("tempo real(em seg):", segundos)
 else:
    segundos = tempo_demandado
 

@@ -12,7 +12,10 @@ from utilitarios.src.legivel import tempo as ul_tempo
 
 
 # constantes de personalização.
-BARRA_V = '#'
+if __debug__:
+   BARRA_V = '@'
+else:
+   BARRA_V = '#'
 MARGEM_HORIZONTAL = 10
 QTD_LINHAS = 5
 PROGRESSO_ATOMO = ' '
@@ -53,9 +56,22 @@ def inicia_grafico(timer):
    janela.refresh()
    curses.napms(1500)
 
+   # inclui contagem regressiva no minuto final.
+   meia_hora = 60 * 5 // 2
+   tem_minuto_final = False
+   if timer > meia_hora:
+      timer_auxiliar = None
+      tem_minuto_final = True
+   ...
+   acionadoTMF = False
+
    desenha_barra(janela)
    while timer():
       janela.clear()
+      # texto piscante para dizer que nada no
+      # sistema vai acontecer(desligamento).
+      if __debug__:
+         janela.addstr(2, 2, "debug mode", curses.A_BLINK)
       contagem = ul_tempo(
          timer.agendado(), 
          arredonda=True, 
@@ -64,9 +80,21 @@ def inicia_grafico(timer):
       info_de_tempo(janela, contagem)
       desenha_barra(janela)
       preenche_barra(janela, 1.0-timer.percentual())
+
+      # troca para o timer de 1min.
+      if tem_minuto_final and (timer < 60) and (not acionadoTMF):
+         timer_auxiliar =  timer
+         timer = Temporizador(60)
+         acionadoTMF = True
+      ...
+
+      # atualização de tela em quase 1min.
       janela.refresh()
-      curses.napms(200)
+      curses.napms(800)
    else:
+      # destroca novamente os timers.
+      if tem_minuto_final:
+         (timer, timer_auxiliar) = (timer_auxiliar, timer)
       # mensagem de fim.
       janela.clear()
       # dimensão do terminal
@@ -164,6 +192,17 @@ def posicao_centralizada(janela, altura, largura):
 
 
 if __name__ == "__main__":
-   timer = Temporizador(stringtime_to_segundos("3.5min"))
-   inicia_grafico(timer)
+   from time import sleep
+   segundos = stringtime_to_segundos("3.5min")
+   timer = Temporizador(segundos)
+   #inicia_grafico(timer)
+
+   while timer():
+      contagem = ul_tempo(
+         timer.agendado(), 
+         arredonda=True, 
+         acronomo=True
+      )
+      print("tempo =:: {}".format(contagem))
+      sleep(5)
 ...
