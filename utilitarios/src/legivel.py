@@ -134,7 +134,7 @@ def converte(t):
    elif t >= 1 and t < 60:
       grandeza = 'segundos'
       return '%0.2f %s' % (t, grandeza)
-   elif t > 60 and t < 3600:
+   elif t >= 60 and t < 3600:
       grandeza = 'minutos'
       return '%0.2f %s' % (t / minuto, grandeza)
    elif t >= hora and t < dia:
