@@ -57,13 +57,12 @@ def inicia_grafico(timer):
    curses.napms(1500)
 
    # inclui contagem regressiva no minuto final.
-   meia_hora = 60 * 5 // 2
-   tem_minuto_final = False
-   if timer > meia_hora:
-      timer_auxiliar = None
-      tem_minuto_final = True
-   ...
-   acionadoTMF = False
+   if __debug__:
+      MEIA_HORA = 60 * 5 // 2
+   else:
+      MEIA_HORA = 3600 // 2
+   barra_acionada = False
+   outra_barra = timer > MEIA_HORA
 
    desenha_barra(janela)
    while timer():
@@ -72,6 +71,7 @@ def inicia_grafico(timer):
       # sistema vai acontecer(desligamento).
       if __debug__:
          janela.addstr(2, 2, "debug mode", curses.A_BLINK)
+
       contagem = ul_tempo(
          timer.agendado(), 
          arredonda=True, 
@@ -79,22 +79,28 @@ def inicia_grafico(timer):
       )
       info_de_tempo(janela, contagem)
       desenha_barra(janela)
-      preenche_barra(janela, 1.0-timer.percentual())
+      percentual = 1.0 - timer.percentual()
+      preenche_barra(janela, percentual)
 
       # troca para o timer de 1min.
-      if tem_minuto_final and (timer < 60) and (not acionadoTMF):
-         timer_auxiliar =  timer
-         timer = Temporizador(60)
-         acionadoTMF = True
+      # só se o timer foi marcado com mais de meia-hora.
+      if outra_barra:
+         if (timer < 60) and (not barra_acionada):
+            restante = Temporizador(60)
+            barra_acionada = True
+         elif timer < 60 and barra_acionada:
+            # barra complementar de um minito mais ou menos.
+            desenha_barra_complementa(janela)
+            # um percentual decrescente(%).
+            percentual = 1.0 - restante.percentual()
+            preenche_barra_complementar(janela, percentual)
+         ...
       ...
 
       # atualização de tela em quase 1min.
       janela.refresh()
       curses.napms(800)
    else:
-      # destroca novamente os timers.
-      if tem_minuto_final:
-         (timer, timer_auxiliar) = (timer_auxiliar, timer)
       # mensagem de fim.
       janela.clear()
       # dimensão do terminal
@@ -188,6 +194,61 @@ def posicao_centralizada(janela, altura, largura):
    altura = (at - altura) // 2
    largura = (lt - largura) // 2
    return (altura, largura)
+...
+
+# é uma altura menor que a superior.
+NOVA_QL = QTD_LINHAS - 2
+# comprimento da barra é menor.
+NOVA_MARGEM_H = MARGEM_HORIZONTAL + 3
+# barra complementar de um miniuto para 
+# da dinâmismo gráfico.
+def desenha_barra_complementa(janela):
+   (_, largura) = janela.getmaxyx()
+   comprimento = largura - (2 * NOVA_MARGEM_H)
+   linha = computa_altura(janela)
+   
+   (y, x) = (
+      linha - 1 + (QTD_LINHAS-NOVA_QL) + NOVA_QL + 2, 
+      NOVA_MARGEM_H 
+   )
+   janela.vline(y, NOVA_MARGEM_H, BARRA_V, NOVA_QL + 1)
+   x = NOVA_MARGEM_H + comprimento
+   janela.vline(y, x, BARRA_V, NOVA_QL) 
+   x = NOVA_MARGEM_H + 1
+   janela.hline(y, x, BARRA_V, comprimento)
+   y += NOVA_QL
+   janela.hline(y, x, BARRA_V, comprimento)
+...
+
+def preenche_barra_complementar(janela, percentual):
+   (_, largura) = janela.getmaxyx()
+   comprimento = largura - (2 * NOVA_MARGEM_H)
+   linha = computa_altura(janela)
+   # limite até onde será gerado.
+   tarja = int(comprimento * percentual)
+   # nova paleta de cores.
+   curses.init_pair(95, curses.COLOR_BLUE, -1)
+
+   # desenhando barra em si.
+   janela.standout()
+   for p in range(NOVA_QL-1):
+      x = NOVA_MARGEM_H + 1
+      y = p + linha + (QTD_LINHAS + 2)
+      if 0.80 < percentual <= 1.0:
+         texto_cor = 95
+      elif 0.60 < percentual <= 0.80:
+         texto_cor = 96
+      elif 0.40 < percentual <= 0.60:
+         texto_cor = 99
+      elif 0.20 < percentual <= 0.40:
+         texto_cor = 98
+      else:
+         texto_cor = 97
+      janela.attron(curses.color_pair(texto_cor))
+      janela.hline(y, x, PROGRESSO_ATOMO, tarja)
+      janela.attroff(curses.color_pair(texto_cor))
+   ...
+   janela.standend()
 ...
 
 

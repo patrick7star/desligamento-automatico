@@ -46,8 +46,7 @@ class Temporizador:
 
    def percentual(self):
       "verifica o percentual decorrido em segundos"
-      return self._atual / self._limite
-   ...
+      self(); return self._atual / self._limite
 
    def agendado(self):
       "tempo agendado para contagem regressiva"
