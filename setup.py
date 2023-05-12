@@ -9,7 +9,7 @@ o desligamento no fim.
 
 
 # meus módulos:
-from interface_grafica import inicia_grafico
+from graficos import inicia_grafico
 from temporizador import stringtime_to_segundos, Temporizador
 
 # biblioteca do Python:
