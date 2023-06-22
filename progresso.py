@@ -278,26 +278,54 @@ class BarraProgresso(BarraProgresso):
       # renomeando ponto principal para 
       # melhor codificação. Também dois pontos
       # utilizados que são usados repetidamente.
-      match direcao:
-         case Direcao.DIREITA:
+      from platform import python_version_tuple
+      versao = python_version_tuple()[1]
+      if versao >= 10:
+         eval("""
+         match direcao:
+            case Direcao.DIREITA:
+               # verificando também se tal ordem de movimento
+               # não ultrapassa os limites da 'tela'. Se este
+               # for o caso, um erro será lançado.
+               if self._csd.x + passo >= max_largura:
+                  raise OverflowError("passa limites da tela")
+               self._cse += Ponto(0, passo)
+            case Direcao.ESQUERDA:
+               if self._cse.x - passo < 0:
+                  raise OverflowError("passa limites da tela")
+               self._cse -= Ponto(0, passo)
+            case Direcao.CIMA:
+               if self._cse.y - passo < 0:
+                  raise OverflowError("passa limites da tela")
+               self._cse -= Ponto(passo, 0)
+            case Direcao.BAIXO:
+               if self._csd.y + passo >= max_altura:
+                  raise OverflowError("passa limites da tela")
+               self._cse += Ponto(passo, 0)
+         ...
+         """)
+      else:
+         if direcao is Direcao.DIREITA:
             # verificando também se tal ordem de movimento
             # não ultrapassa os limites da 'tela'. Se este
             # for o caso, um erro será lançado.
             if self._csd.x + passo >= max_largura:
                raise OverflowError("passa limites da tela")
             self._cse += Ponto(0, passo)
-         case Direcao.ESQUERDA:
+         elif direcao is Direcao.ESQUERDA:
             if self._cse.x - passo < 0:
                raise OverflowError("passa limites da tela")
             self._cse -= Ponto(0, passo)
-         case Direcao.CIMA:
+         elif direcao is Direcao.CIMA:
             if self._cse.y - passo < 0:
                raise OverflowError("passa limites da tela")
             self._cse -= Ponto(passo, 0)
-         case Direcao.BAIXO:
+         elif direcao is Direcao.BAIXO:
             if self._csd.y + passo >= max_altura:
                raise OverflowError("passa limites da tela")
             self._cse += Ponto(passo, 0)
+         else:
+            raise Exception("não implementado para tal!")
       ...
       # realinha as demais.
       self._ajusta_coordenadas()
