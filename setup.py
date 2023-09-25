@@ -55,11 +55,10 @@ else:
 # criando temporizador.
 contador = Temporizador(segundos)
 
-# entrega uma formatação de acordo
-# com a cor da barra.
+# entrega uma formatação de acordo com a cor da barra.
 def mensagemDeInterrupcao(porcentual):
    # quebra-de-linha normal.
-   print("\n\n")
+   print('\n')
 
    # percentual em várias formas.
    complemento = 1.0 - porcentual 
@@ -90,8 +89,41 @@ def mensagemDeInterrupcao(porcentual):
    )
 ...
 
+from notificacao import *
+from threading import Thread
+
 # parte gráfica ...
 try:
+   # inicia também thread onde dispara notificações
+   # espaçada baseado no tempo total, para informar
+   # a hora.
+   info_constante = Thread(
+      target=alerta_horario, 
+      args=(
+         # tem que ser um inteiro, pois por qualquer motivo
+         # bem difícil de responder, quebra com valores decimais.
+         int(contador.agendado()),
+         "Desligamento Automático"
+      ),
+      daemon=True,
+      # para encontrar thread no gerenciador de 
+      # tarefas do sistema.
+      name="alerta-de-horarioDA"
+   )
+   if __debug__:
+      # no modo debug sempre dispara.
+      print(contador.agendado())
+      info_constante.start()
+   else:
+      # para acionar este mostrador de horário, o valor mínimo
+      # tem que ser mais de 7min.
+      if contador.agendado() > 7 * 60:
+         info_constante.start()
+      else:
+         print("info horário apenas com mais de 3min.")
+   ...
+
+   # inicialização do modo gráfico ...
    inicia_grafico(contador)
 except KeyboardInterrupt:
    system("stty sane")

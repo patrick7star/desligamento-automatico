@@ -24,88 +24,72 @@ __all__ = (
 
 
 def inicia_grafico(timer):
-   """ 
+   """
    a execução de todo o visual do programa,
-   do seu arranjo de tela, até a animação 
+   do seu arranjo de tela, até a animação
    que ele toca.
-   """ 
-   janela = curses.initscr()
-   # sua configuração:
-   curses.start_color()
-   curses.use_default_colors()
-   curses.curs_set(0)
-
-   # novas cores.
-   curses.init_color(18, 0, 255, 17)
-   VERDE_ESCURO = 18 # Bom!
-   # paletas de cores.
-   curses.init_pair(99, curses.COLOR_GREEN, -1)
-   curses.init_pair(98, curses.COLOR_YELLOW, -1)
-   curses.init_pair(97, curses.COLOR_RED, -1)
-   curses.init_pair(96, VERDE_ESCURO, -1)
-
-   #preenche_barra(janela, timer.percentual())
-   janela.refresh()
-   curses.napms(1500)
-
+   """
    # inclui contagem regressiva no minuto final.
    if __debug__:
       MEIA_HORA = 60 * 5 // 2
    else:
       MEIA_HORA = 3600 // 2
+   janela = Janela(1.2, Janela.TAXA_PADRAO)
    barra_acionada = False
    outra_barra = timer > MEIA_HORA
 
    # importando aqui dentro, pois pode criar
    # algo circular, se feito na 'main thread'
    # do programa. Como tal função é chamada
-   # apenas uma vez por execução, o custo 
-   #computacional não será tão grande.
+   # apenas uma vez por execução, o custo
+   # computacional não será tão grande.
    from progresso import (Ponto, BarraProgresso, Direcao)
    global Ponto, BarraProgresso
 
+   def centralizas_barras(b, bm):
+      b.centraliza()
+      b.anexa(Direcao.BAIXO, bm)
+      (N, n) = (b.dimensao[1], bm.dimensao[1])
+      bm.desloca(Direcao.BAIXO, 2)
+      # computando deslocamento horizontal.
+      bm.desloca(Direcao.DIREITA, (N-n)//2)
+   ...
    #desenha_barra(janela)
-   (H, L) = janela.getmaxyx()
+   (H, L) = janela.dimensao()
    largura_barra = int(L * 0.70)
    meio = Ponto((H-5)//2, (L-largura_barra)//2)
    barra = BarraProgresso(
-      janela, posicao=meio,
+      janela.ref, posicao=meio,
       largura=largura_barra,
       altura=5
    )
    barraminuto = BarraProgresso(
-      janela, altura=3,
-      posicao=meio+Ponto(5, 0),
+      janela.ref, altura=3,
+      posicao=(meio + Ponto(5, 0)),
       largura = int(L * 0.70 * 0.70),
       mais_cores=True
    )
    # grava dimensão atual da janela.
-   atual_dimensao = janela.getmaxyx()
+   atual_dimensao = janela.dimensao()
+   # centralização inicial.
+   centralizas_barras(barra, barraminuto)
 
    while timer():
-      janela.clear()
-      # texto piscante para dizer que nada no
-      # sistema vai acontecer(desligamento).
-      if __debug__:
-         janela.addstr(2, 2, "debug mode", curses.A_BLINK)
-         dimensao_str = "dimensão(H={} L={})".format(H, L)
-         janela.addstr(
-            2, L - len(dimensao_str) - 1,
-            dimensao_str, curses.A_BLINK
-         )
+      janela.limpa()
+      try:
+         tecla = chr(janela.ref.getch()).lower()
+      except ValueError:
+         tecla = 'a'
+      finally: pass
+      if tecla == 's':
+         del janela
+         raise KeyboardInterrupt("tecla certa 's' foi pressionada")
       ...
-
       # centraliza barra se necessário.
-      if janela.getmaxyx() != atual_dimensao:
-         barra.centraliza()
-         # sem esquecer de uma possível outra barra.
-         if outra_barra:
-            barraminuto.centraliza()
-            # retirando de cima da outra...
-            barraminuto.desloca(Direcao.BAIXO, 5+1)
-         ...
+      if janela.dimensao() != atual_dimensao:
+         centralizas_barras(barra, barraminuto)
          # valor atual foi atualizado.
-         atual_dimensao = janela.getmaxyx()
+         atual_dimensao = janela.dimensao()
       ...
 
       contagem_str = ul_tempo(
@@ -113,7 +97,7 @@ def inicia_grafico(timer):
          arredonda=True,
          acronomo=True
       )
-      info_de_tempo(janela, contagem_str)
+      info_de_tempo(janela.ref, contagem_str)
       percentual = 1.0 - timer.percentual()
       barra.preenche(percentual)
       barra()
@@ -136,24 +120,19 @@ def inicia_grafico(timer):
       ...
 
       # atualização de tela em quase 1min.
-      janela.refresh()
-      curses.napms(800)
+      janela.congela(0.8)
+      janela.limpa()
    else:
-      # mensagem de fim.
-      janela.clear()
-      # dimensão do terminal
+      janela.limpa()
       # cria texto-desenhado.
       texto_matriz = forma_string("desligando")
       (l, h) = (len(texto_matriz[0]), len(texto_matriz))
       # computação CSE para desenhar o texto-desenhado.
-      posicao = posicao_centralizada(janela, h, l)
+      posicao = posicao_centralizada(janela.ref, h, l)
       # desenha em sí o texto-desenhado.
-      escreve_no_curses(janela, posicao, texto_matriz)
-      janela.refresh()
+      escreve_no_curses(janela.ref, posicao, texto_matriz)
+      janela.ref.refresh()
    ...
-
-   curses.napms(1500)
-   curses.endwin()
 ...
 
 # Computa o lado superior esquerdo, para que
@@ -208,42 +187,122 @@ def posicao_centralizada(janela, altura, largura):
    )
 ...
 
-class JanelaDebug():
-   " para série de testes "
-   def __init__(self, tempo):
-      self._tempo_limite = tempo
-      self._janela = curses.initscr()
-      # sua configuração:
-      curses.start_color()
-      curses.use_default_colors()
-      curses.curs_set(0)
-
-      # novas cores.
-      curses.init_color(18, 0, 255, 17)
-      VERDE_ESCURO = 18 # Bom!
-      # paletas de cores.
-      curses.init_pair(99, curses.COLOR_GREEN, -1)
-      curses.init_pair(98, curses.COLOR_YELLOW, -1)
-      curses.init_pair(97, curses.COLOR_RED, -1)
-      curses.init_pair(96, VERDE_ESCURO, -1)
-   ...
-   # encerra programa semi-gráfico.
-   def encerra(self):
-      curses.napms(self._tempo_limite)
-      curses.endwin()
-   ...
-   def referencia(self):
-      return self._janela
-   ref = property(referencia, None, None, None)
-...
-
 from unittest import (TestCase, main, skip, skipIf)
 from progresso import (BarraProgresso, Direcao, Ponto)
+from janelas import * 
 from os import get_terminal_size
+from random import randint
 
-class Funcoes(TestCase):
+class IniciaGraficos(TestCase):
+   """
+   testes/e protótipos de vários layouts
+   que podem ser aplicados à programa. Primeiro,
+   é claro, serão aplicados aqui.
+   """
+   def modeloAntigo(self):
+      janela = Janela(
+         3.5, Janela.TAXA_PADRAO,
+         rotulo="modo debug"
+      )
+      # mais de cinco minutos
+      timer = Temporizador(320)
+
+      # inclui contagem regressiva no minuto final.
+      MEIA_HORA = 60 * 5 // 2
+      barra_acionada = False
+      outra_barra = timer > MEIA_HORA
+
+      # importando aqui dentro, pois pode criar
+      # algo circular, se feito na 'main thread'
+      # do programa. Como tal função é chamada
+      # apenas uma vez por execução, o custo
+      #computacional não será tão grande.
+      from progresso import (Ponto, BarraProgresso, Direcao)
+      global Ponto, BarraProgresso
+
+      def centralizas_barras(b, bm):
+         b.centraliza()
+         b.anexa(Direcao.BAIXO, bm)
+         (N, n) = (b.dimensao[1], bm.dimensao[1])
+         bm.desloca(Direcao.BAIXO, 2)
+         # computando deslocamento horizontal.
+         bm.desloca(Direcao.DIREITA, (N-n)//2)
+      ...
+      #desenha_barra(janela)
+      (H, L) = janela.dimensao()
+      largura_barra = int(L * 0.70)
+      meio = Ponto((H-5)//2, (L-largura_barra)//2)
+      barra = BarraProgresso(
+         janela.ref, posicao=meio,
+         largura=largura_barra,
+         altura=5
+      )
+      barraminuto = BarraProgresso(
+         janela.ref, altura=3,
+         posicao=(meio + Ponto(5, 0)),
+         largura = int(L * 0.70 * 0.70),
+         mais_cores=True
+      )
+      # grava dimensão atual da janela.
+      atual_dimensao = janela.dimensao()
+      # centralização inicial.
+      centralizas_barras(barra, barraminuto)
+
+      while timer():
+         janela.limpa()
+
+         # centraliza barra se necessário.
+         if janela.dimensao() != atual_dimensao:
+            centralizas_barras(barra, barraminuto)
+            # valor atual foi atualizado.
+            atual_dimensao = janela.dimensao()
+         ...
+
+         contagem_str = ul_tempo(
+            timer.agendado(),
+            arredonda=True,
+            acronomo=True
+         )
+         info_de_tempo(janela.ref, contagem_str)
+         percentual = 1.0 - timer.percentual()
+         barra.preenche(percentual)
+         barra()
+
+         # troca para o timer de 1min.
+         # só se o timer foi marcado com mais de meia-hora.
+         if outra_barra:
+            if (timer < 60) and (not barra_acionada):
+               restante = Temporizador(60)
+               barra_acionada = True
+            elif timer < 60 and barra_acionada:
+               # barra complementar de um minito mais ou menos.
+               #desenha_barra_complementa(janela)
+               # um percentual decrescente(%).
+               percentual = 1.0 - restante.percentual()
+               #preenche_barra_complementar(janela, percentual)
+               barraminuto.preenche(percentual)
+               barraminuto()
+            ...
+         ...
+
+         # atualização de tela em quase 1min.
+         janela.congela(0.8)
+         janela.limpa()
+      else:
+         janela.limpa()
+         # cria texto-desenhado.
+         texto_matriz = forma_string("desligando")
+         (l, h) = (len(texto_matriz[0]), len(texto_matriz))
+         # computação CSE para desenhar o texto-desenhado.
+         posicao = posicao_centralizada(janela.ref, h, l)
+         # desenha em sí o texto-desenhado.
+         escreve_no_curses(janela.ref, posicao, texto_matriz)
+         janela.ref.refresh()
+      ...
+   ...
    def buscandoLayoutIdeal(self):
-      janela = JanelaDebug(8500)
+      janela = JanelaDebug()
+      janela.aumenta_tempo_limite(5.1)
       info_de_tempo(janela.ref, "3.6h")
       (_, L) = janela.ref.getmaxyx()
       barra_geral = BarraProgresso(
@@ -255,19 +314,21 @@ class Funcoes(TestCase):
          largura=int(L * (0.70**2)),
          mais_cores=True
       )
+      # ajustando as barras.
       barra_geral.centraliza()
       barra_minuto.centraliza()
       barra_minuto.desloca(Direcao.BAIXO, 6)
-      barra_minuto.preenche(0.86)
-      barra_geral.preenche(0.43)
+      # preenchendo apenas para visualização.
+      barra_minuto.preenche(randint(20, 100)/100)
+      barra_geral.preenche(randint(30, 90)/100)
       # renderização...
       barra_geral(); barra_minuto()
       janela.encerra()
    ...
    @skip("ainda não finalizado!")
    def barraPopupDinamismo(self):
-      janela = JanelaDebug(8500)
-      (_, L) = janela.ref.getmaxyx()
+      janela = JanelaDebug()
+      (_, L) = janela.dimensao()
       barra_geral = BarraProgresso(
          janela.ref, largura=int(L * 0.70)
       )
@@ -279,7 +340,7 @@ class Funcoes(TestCase):
       percentual = 1.0
       texto = forma_string("3h")
       l = len(texto[0])
-      L = (lambda j: j.getmaxyx()[1])
+      L = (lambda j: j.dimensao()[1])
 
       while percentual > 0:
          ponto = Ponto(3, ((L(janela.ref)-l)//2))
@@ -293,7 +354,7 @@ class Funcoes(TestCase):
          barra_geral(); barra_minuto()
          percentual -= 0.05
          curses.napms(1100)
-         janela.ref.erase()
+         janela.limpa()
       ...
       janela.encerra()
    ...
@@ -302,12 +363,13 @@ class Funcoes(TestCase):
      "tela muito pequena para esboçar desenhos"
    )
    def layoutParaTelaCheia(self):
-      janela = JanelaDebug(8500)
-      (H, L) = janela.ref.getmaxyx()
+      janela = JanelaDebug()
+      janela.aumenta_tempo_limite(4.3)
+      (H, L) = janela.dimensao()
       percentual = 1.0
       texto = forma_string("37min")
       (l, h) = (len(texto[0]), len(texto))
-      # só funciona para tela cheias, e que 
+      # só funciona para tela cheias, e que
       # cabem o seguinte layout.
       bG = BarraProgresso(
          janela.ref, largura=int((L-l) * 0.70)
@@ -333,8 +395,47 @@ class Funcoes(TestCase):
          # renderização...
          bG(); bM()
          percentual -= 0.05
-         curses.napms(1100)
-         janela.ref.erase()
+         #curses.napms(1100)
+         janela.congela(1.1)
+         janela.limpa()
+      ...
+      janela.encerra()
+   ...
+   def barraMinutoAtiva(self):
+      janela = JanelaDebug()
+      info_de_tempo(janela.ref, "2min")
+      (_, L) = janela.ref.getmaxyx()
+      barra_geral = BarraProgresso(
+         janela.ref, altura=6,
+         largura=int(L * 0.70)
+      )
+      barra_minuto = BarraProgresso(
+         janela.ref, altura=3,
+         largura=int(L * (0.70**2)),
+         mais_cores=True
+      )
+      # ajustando as barras.
+      barra_geral.centraliza()
+      barra_minuto.centraliza()
+      barra_minuto.desloca(Direcao.BAIXO, 6)
+      # temporizadores para cada barra.
+      contador_reverso = Temporizador(120)
+      contador_reversoI = Temporizador(30)
+      while contador_reverso():
+         # resetando o contador da barra-minuto.
+         if not contador_reversoI():
+            contador_reversoI = Temporizador(30)
+         info_de_tempo(janela.ref, "2min")
+         # preenchendo apenas para visualização.
+         pBG = 1.0 - contador_reverso.percentual()
+         pBM = 1.0 - contador_reversoI.percentual()
+         barra_minuto.preenche(pBM)
+         barra_geral.preenche(pBG)
+         # renderização...
+         barra_geral(); barra_minuto()
+         curses.napms(500)
+         # apagando tudo para reescreve novamente.
+         janela.limpa()
       ...
       janela.encerra()
    ...
