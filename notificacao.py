@@ -28,6 +28,12 @@ class Urgencia(Enum):
 ...
 
 import logging
+logging.basicConfig(
+   filename="notificacao.log", 
+   # uma escrita por execução ...
+   filemode="w", 
+   level=logging.DEBUG
+)
 
 def lanca_notificacao(nome_do_programa: str, mensagem: str,
 importancia: Urgencia = Urgencia.NORMAL, segundos: int = None,
@@ -58,9 +64,11 @@ icone: str = None):
    ...
    if __debug__:
       if segundos is None:
-         print("tempo é o padrão.")
+         # print("tempo é o padrão.")
+         logging.info("tempo é o padrão.")
       if icone is None:
-         print("um ícone não foi selecionado")
+         # print("um ícone não foi selecionado")
+         loggin.info("um ícone não foi selecionado")
    ...
    argumentos = [
       "notify-send", 
@@ -100,7 +108,7 @@ def alerta_horario(total_segundos: int, nome_do_programa: str):
    for k in range(TOTAL_DE_DISPAROS - 1):
       horario_formatado = strftime("%H:%M:%S", localtime(time()))
       if __debug__:
-         logging.warning(
+         logging.debug(
             "{}ª disparo de {} ..."
             .format(k + 1, TOTAL_DE_DISPAROS)
          )
@@ -130,7 +138,7 @@ def alerta_horario(total_segundos: int, nome_do_programa: str):
             "um erro ao chmar 'lanca_notifica'," 
             + " ocorreu"
          )
-         print(mensagem_erro, file=sys.stderr)
+         logging.debug(mensagem_erro, file=sys.stderr)
       ...
 
       # só volta a executar a instrução acima depois de um

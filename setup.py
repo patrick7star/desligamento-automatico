@@ -138,6 +138,8 @@ except KeyboardInterrupt:
 
 # execuntando o comando ...
 if __debug__:
-   system("echo desligamento acionado.")
+   print("desligamento acionado.")
+   import logging
+   logging.info("o sistema foi desligado com sucesso.")
 else:
    system("shutdown now")
