@@ -14,7 +14,8 @@ Código feito em Python que desligar o sistema, informando o progresso. Usa a li
 <figure>
     <img src="imagens/notificação_do_horario_com_percentual_decorrido.png" />
     <figcaption> <i>Figura 1</i>: imagem geral do programa, onde aparece ele executado via terminal, a notificação no canto do programa é a notificação do horário; já como pode ser visto o sistema que o executa não tem(foi desativado)</figcaption>
-</figure><br/>
+    <br/><br/>
+</figure>
 
 
 <p> As cores da barra vão mudando de acordo com que o tempo passa. Primeiro começa com um verde bem escuro, se afastando do tempo inicial, tal verde vai ficando claro, e mais claro até que atija o meio, onde ele fica amarelo; a última cor, lá para o final é vermelha, estamos falando de 15% para o fim do <i>temporizador</i>.</p>
