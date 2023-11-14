@@ -10,7 +10,7 @@ o desligamento no fim.
 
 # meus módulos:
 from graficos import inicia_grafico
-from temporizador import stringtime_to_segundos, Temporizador
+from utilitarios.src.tempo import Temporizador
 
 # biblioteca do Python:
 from sys import argv
@@ -34,6 +34,26 @@ except FileNotFoundError:
    chmod(caminho, S_IRWXU | S_IXGRP | S_IXOTH)
 ...
 
+# outras possíveis opções que podem ser acionadas.
+
+# alterna para suspensão ao invés do desligamento.
+modo_suspensao = False
+if "--suspende" in argv:
+   if __debug__:
+      print("argumentos agora:", argv)
+   argv.remove("--suspende")
+   modo_suspensao = (not modo_suspensao) 
+...
+
+# alterna modo gráfico para modo de texto, este bem mais claro sobre
+# como está o comando, do contrário era só digitar o comando no
+# terminal mesmo.
+MODO_TEXTO = False
+if "--modo-texto" in argv:
+   argv.remove("--modo-texto")
+   MODO_TEXTO = (not MODO_TEXTO) 
+...
+
 # formando argumento ...
 if len(argv) > 1:
    tempo_demandado = " ".join(argv[1:])
@@ -44,8 +64,41 @@ else:
 if __debug__:
    print("formação do argumento: \"%s\"" % tempo_demandado)
 
+def stringtime_to_seg(string: str) -> float:
+   caracteres = []
+   # remove todos espaços brancos.
+   for char in string:
+      if not char.isspace():
+         caracteres.append(char)
+   ...
+   # acha divisor entre peso e parte numérica.
+   marco = None
+   for (i, char) in enumerate(caracteres):
+      if char.isalpha():
+         marco = i
+         break
+      ...
+   ...
+   # transformando em respectivos objetos.
+   digitos = float(''.join(caracteres[0:marco]))
+   peso = ''.join(caracteres[marco:])
+
+   if marco == None:
+      raise Exception("argumento mal formado: %s" % string)
+
+   if peso.startswith("min") or peso == "m":
+      return digitos * 60
+   elif peso.startswith("seg") or peso == "s":
+      return digitos
+   elif peso.startswith("hora") or peso == "h":
+      return digitos * 3600
+   elif peso.startswith("dia") or peso == "d":
+      return digitos * 3600 * 24
+   else:
+      raise Exception("não implementado para tal")
+...
 if type(tempo_demandado) == str:
-   segundos = stringtime_to_segundos(tempo_demandado)
+   segundos = stringtime_to_seg(tempo_demandado)
    # pós conversão, converte o argumento sem arredondar?
    if __debug__:
       print("tempo real(em seg):", segundos)
@@ -91,6 +144,7 @@ def mensagemDeInterrupcao(porcentual):
 
 from notificacao import *
 from threading import Thread
+from modo_texto import inicia_modo_texto
 
 # parte gráfica ...
 try:
@@ -102,7 +156,7 @@ try:
       args=(
          # tem que ser um inteiro, pois por qualquer motivo
          # bem difícil de responder, quebra com valores decimais.
-         int(contador.agendado()),
+         int(contador.agendado().total_seconds()),
          "Desligamento Automático"
       ),
       daemon=True,
@@ -117,14 +171,23 @@ try:
    else:
       # para acionar este mostrador de horário, o valor mínimo
       # tem que ser mais de 7min.
-      if contador.agendado() > 7 * 60:
+      if contador.agendado().total_seconds() > 7 * 60:
          info_constante.start()
       else:
          print("info horário apenas com mais de 3min.")
    ...
 
-   # inicialização do modo gráfico ...
-   inicia_grafico(contador)
+   if (not MODO_TEXTO):
+      # inicialização do modo gráfico ...
+      if modo_suspensao:
+         inicia_grafico(contador, mensagem_final="suspendendo")
+      else:
+         inicia_grafico(contador)
+   else:
+      if modo_suspensao:
+         inicia_modo_texto(contador, "suspensão")
+      else:
+         inicia_modo_texto(contador, "desligamento")
 except KeyboardInterrupt:
    system("stty sane")
 
@@ -138,8 +201,15 @@ except KeyboardInterrupt:
 
 # execuntando o comando ...
 if __debug__:
-   print("desligamento acionado.")
    import logging
-   logging.info("o sistema foi desligado com sucesso.")
+   if modo_suspensao:
+      print("suspensão acionada.")
+      logging.info("o sistema foi suspendido com sucesso.")
+   else:
+      print("desligamento acionado.")
+      logging.info("o sistema foi desligado com sucesso.")
 else:
-   system("shutdown now")
+   if modo_suspensao:
+      system("systemctl suspend")
+   else:
+      system("shutdown now")

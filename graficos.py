@@ -8,9 +8,9 @@ do Python especificamente.
 # biblioteca do Python:
 import curses
 # própria biblioteca:
-from temporizador import (Temporizador, stringtime_to_segundos)
 from texto_desenho.forma_palavras import forma_string
 from utilitarios.src.legivel import tempo as ul_tempo
+from utilitarios.src.tempo import Temporizador
 
 
 # constantes de personalização.
@@ -23,7 +23,7 @@ __all__ = (
 )
 
 
-def inicia_grafico(timer):
+def inicia_grafico(timer, mensagem_final="desligando"):
    """
    a execução de todo o visual do programa,
    do seu arranjo de tela, até a animação
@@ -93,7 +93,7 @@ def inicia_grafico(timer):
       ...
 
       contagem_str = ul_tempo(
-         timer.agendado(),
+         timer.agendado().total_seconds(),
          arredonda=True,
          acronomo=True
       )
@@ -125,7 +125,7 @@ def inicia_grafico(timer):
    else:
       janela.limpa()
       # cria texto-desenhado.
-      texto_matriz = forma_string("desligando")
+      texto_matriz = forma_string(mensagem_final)
       (l, h) = (len(texto_matriz[0]), len(texto_matriz))
       # computação CSE para desenhar o texto-desenhado.
       posicao = posicao_centralizada(janela.ref, h, l)
@@ -259,7 +259,7 @@ class IniciaGraficos(TestCase):
          ...
 
          contagem_str = ul_tempo(
-            timer.agendado(),
+            timer.agendado().total_seconds(),
             arredonda=True,
             acronomo=True
          )
