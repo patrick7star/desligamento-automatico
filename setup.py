@@ -17,17 +17,18 @@ from sys import argv
 from os import system, chmod, chdir, getcwd, getenv
 from random import randint
 from stat import S_IRWXU, S_IXGRP, S_IXOTH
-from os.path import join
 
 # biblioteca externa:
 from print_color import print as PrintColorido
 
-# colocando permisões:
+from pathlib import PosixPath
+# Em qualquer tipo de execução do script, dando-o permissões que
+# facilitarão suas execuções futuras.
 try:
    chmod("setup.py", S_IRWXU | S_IXGRP | S_IXOTH)
 except FileNotFoundError:
-   caminho = join(
-      getenv("PYTHON_CODES"),
+   raiz_codigos = PosixPath(getenv("PYTHON_CODES"))
+   caminho = raiz_codigos.joinpath(
       "desligamento-automatico", 
       "setup.py"
    )
@@ -35,6 +36,11 @@ except FileNotFoundError:
 ...
 
 # outras possíveis opções que podem ser acionadas.
+from historico_e_configuracao import grava_historico
+comando_formado = " ".join(argv)
+if __debug__:
+   print("comando =",comando_formado)
+grava_historico([comando_formado])
 
 # alterna para suspensão ao invés do desligamento.
 modo_suspensao = False

@@ -28,10 +28,21 @@ class Urgencia(Enum):
 ...
 
 import logging
+from pathlib import (Path, PurePosixPath)
+from os import getenv
+
+# caminho ligado ao diretório onde está o script deste programa.
+caminho_do_log = PurePosixPath(
+   getenv("PYTHON_CODES") + 
+   "/desligamento-automatico" +
+   "/data/notificacao.log"
+)
+# assert Path(caminho_do_log).exists()
+
 logging.basicConfig(
-   filename="notificacao.log", 
+   filename=caminho_do_log,
    # uma escrita por execução ...
-   filemode="w", 
+   filemode="a",
    level=logging.DEBUG
 )
 
