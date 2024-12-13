@@ -1,10 +1,12 @@
-
-
 """ Tentando criar uma barra mais bonita."""
 
+# o que será importado:
+__all__ = ["BarraProgresso", "Ponto", "Direcao", "JanelaDebug"]
+
 import curses, unittest
-from graficos import PROGRESSO_ATOMO
-#PROGRESSO_ATOMO = ' '
+from time import (time, sleep)
+from enum import (Flag, auto)
+from os import get_terminal_size
 
 # verifica se argumentos passados cumprem
 # com os limites das telas.
@@ -63,9 +65,10 @@ class BarraProgresso:
    'janela', esta, que tem quer ser passada por
    referência.
    """
+   PROGRESSO_ATOMO = ' '
    # atualiza coordenadas baseado no
    # canto-superior-esquerdo passado:
-   def _ajusta_coordenadas(self):
+   def _ajusta_coordenadas(self) -> None:
       # precisa ter sido criado o atibuto
       # principal, se se, o resto é aplicável;
       # caso contrário lança um erro.
@@ -84,7 +87,7 @@ class BarraProgresso:
    # método construtor:
    def __init__(self, janela, altura = 4,
    largura = 50, posicao = Ponto(2, 2),
-   mais_cores=False):
+   mais_cores=False) -> None:
       # dimensões passadas têm que ter algum limite:
       if altura < 2 or largura < 20:
          raise curses.error(
@@ -118,7 +121,7 @@ class BarraProgresso:
       ...
    ...
    # desenha a barra.
-   def _desenha_barra(self):
+   def _desenha_barra(self) -> None:
       # cuidando dos cantos primeiramente.
       pares = (
          # canto-superior-esquerdo.
@@ -165,7 +168,7 @@ class BarraProgresso:
       self._desenha_barra()
       self._janela.refresh()
    ...
-   def preenche(self, percentual:float):
+   def preenche(self, percentual:float) -> None:
       if percentual > 1.0:
          raise OverflowError(
             "tem que ser um valor maior ou igual a 1"
@@ -214,7 +217,7 @@ class BarraProgresso:
                texto_cor = 97
          ...
          self._janela.attron(curses.color_pair(texto_cor))
-         self._janela.hline(y, x, PROGRESSO_ATOMO, tarja)
+         self._janela.hline(y, x, BarraProgresso.PROGRESSO_ATOMO, tarja)
          self._janela.attroff(curses.color_pair(texto_cor))
       ...
       self._janela.standend()
@@ -223,8 +226,19 @@ class BarraProgresso:
 
 class JanelaDebug():
    " para série de testes "
-   def __init__(self, tempo):
-      self._tempo_limite = tempo
+   # taxa padrão para atualização de 'quadros'
+   TAXA_PADRAO = 800 #milisegundos.
+   def __init__(self, segundos):
+      if segundos > 20 or segundos < 0.5:
+         # para pegar as codificações antigas.
+         raise OverflowError(
+            "mais de 20seg não é permitido"
+            +", ou menos que meio segundo"
+         )
+      ...
+      # converte o tempo passado em segundso
+      # para miliseg.
+      self._tempo_limite = int(segundos * 1_000)
       self._janela = curses.initscr()
       # sua configuração:
       curses.start_color()
@@ -239,6 +253,8 @@ class JanelaDebug():
       curses.init_pair(98, curses.COLOR_YELLOW, -1)
       curses.init_pair(97, curses.COLOR_RED, -1)
       curses.init_pair(96, VERDE_ESCURO, -1)
+      # primeira gravura de marca d'água.
+      self._marca_dagua("modo de debug")
    ...
    # encerra programa semi-gráfico.
    def encerra(self):
@@ -248,94 +264,184 @@ class JanelaDebug():
    def referencia(self):
       return self._janela
    ref = property(referencia, None, None, None)
+   # método formal de limpesa da 'tela'.
+   def limpa(self):
+      if hasattr(self, "_ciclos"):
+         # contabiliza upgrades de tela.
+         self._ciclos += 1
+      else:
+         self._ciclos = 0
+      self._janela.erase()
+      self._marca_dagua("modo debug")
+   ...
+   # congela limpa de janela por algum tempo.
+   def congela(self, segundos):
+      # não permitido mais de 3segs e menos de 1/5seg.
+      if segundos >= 3 or segundos < 0.2:
+         # para pegar as codificações antigas.
+         raise OverflowError(
+            "mais de 3seg não é permitido"
+            +", ou menos que 1/5 de segundo"
+         )
+      ...
+      # conversão em segundos.
+      t = int(segundos * 1000)
+      curses.napms(t)
+   ...
+   # mostrando que está no modo debug.
+   def _marca_dagua(self, mensagem):
+      # ciclos do loop infinito.
+      (y, x) = self._janela.getmaxyx()
+      self._janela.addstr(
+         y-2, (x-(len(mensagem)+2)), mensagem,
+         curses.A_BLINK | curses.A_ITALIC
+      )
+   ...
 ...
 
-from enum import (Flag, auto)
 class Direcao(Flag):
    "Para direciona recuo demandado"
    CIMA = auto()
    BAIXO = auto()
    ESQUERDA = auto()
    DIREITA = auto()
+
+   def oposta(self):
+      "computa a direção oposta a esta"
+      match self:
+         case Direcao.CIMA:
+            return Direcao.BAIXO
+         case Direcao.BAIXO:
+            return Direcao.CIMA
+         case Direcao.ESQUERDA:
+            return Direcao.DIREITA
+         case Direcao.DIREITA:
+            return Direcao.ESQUERDA
+      ...
+   ...
 ...
 
 # continuação da implementação de 'BarraProgresso'.
 class BarraProgresso(BarraProgresso):
-   def centraliza(self):
+   # criando um descriptor para sua dimensão.
+   class Dimensao():
+      def __get__(self, instancia, classe):
+         return (instancia._altura, instancia._largura)
+      def __set__(self, instancia, valor):
+         raise AttributeError("ainda não é possível modifica-lá")
+   ...
+   dimensao = Dimensao()
+
+   def centraliza(self) -> None:
       "centralização do objeto no centro da tela."
       # dimensões da tela e do objeto.
       (H, L) = self._janela.getmaxyx()
       (h, l) = (self._altura, self._largura)
-      # computa o meio, baseado na dimensão 
+      # computa o meio, baseado na dimensão
       # do objeto, e também levando a da 'tela'.
       self._cse = Ponto((H-h)//2, (L-l)//2)
       # acha os demais cantos e os atualiza.
       self._ajusta_coordenadas()
    ...
-   def desloca(self, direcao: Direcao, passo: int):
+   def desloca(self, direcao: Direcao, passo: int) -> None:
       "desloca o objeto na 'direção' dada, por 'n passos'"
       (max_altura, max_largura) = self._janela.getmaxyx()
-      # renomeando ponto principal para 
+      # renomeando ponto principal para
       # melhor codificação. Também dois pontos
       # utilizados que são usados repetidamente.
-      from platform import python_version_tuple
-      versao = python_version_tuple()[1]
-      if versao >= 10:
-         eval("""
-         match direcao:
-            case Direcao.DIREITA:
-               # verificando também se tal ordem de movimento
-               # não ultrapassa os limites da 'tela'. Se este
-               # for o caso, um erro será lançado.
-               if self._csd.x + passo >= max_largura:
-                  raise OverflowError("passa limites da tela")
-               self._cse += Ponto(0, passo)
-            case Direcao.ESQUERDA:
-               if self._cse.x - passo < 0:
-                  raise OverflowError("passa limites da tela")
-               self._cse -= Ponto(0, passo)
-            case Direcao.CIMA:
-               if self._cse.y - passo < 0:
-                  raise OverflowError("passa limites da tela")
-               self._cse -= Ponto(passo, 0)
-            case Direcao.BAIXO:
-               if self._csd.y + passo >= max_altura:
-                  raise OverflowError("passa limites da tela")
-               self._cse += Ponto(passo, 0)
-         ...
-         """)
-      else:
-         if direcao is Direcao.DIREITA:
+      match direcao:
+         case Direcao.DIREITA:
             # verificando também se tal ordem de movimento
             # não ultrapassa os limites da 'tela'. Se este
             # for o caso, um erro será lançado.
             if self._csd.x + passo >= max_largura:
                raise OverflowError("passa limites da tela")
             self._cse += Ponto(0, passo)
-         elif direcao is Direcao.ESQUERDA:
+         case Direcao.ESQUERDA:
             if self._cse.x - passo < 0:
                raise OverflowError("passa limites da tela")
             self._cse -= Ponto(0, passo)
-         elif direcao is Direcao.CIMA:
+         case Direcao.CIMA:
             if self._cse.y - passo < 0:
                raise OverflowError("passa limites da tela")
             self._cse -= Ponto(passo, 0)
-         elif direcao is Direcao.BAIXO:
+         case Direcao.BAIXO:
             if self._csd.y + passo >= max_altura:
                raise OverflowError("passa limites da tela")
             self._cse += Ponto(passo, 0)
-         else:
-            raise Exception("não implementado para tal!")
       ...
       # realinha as demais.
       self._ajusta_coordenadas()
+   ...
+   def mover(self, ponto: Ponto) -> bool:
+      self._cse = ponto
+      try:
+         self._ajusta_coordenadas()
+      except:
+         return False
+      finally:
+         return True
+   ...
+   def anexa(self, direcao: Direcao, barra:BarraProgresso,
+   margem:int=1) -> None:
+      """
+      Serão preciso o lado onde será anexado, que
+      se usa também a 'direção', o espaço entre
+      eles e, e a 'barra de progresso' a ser anexada;
+      para ser honesto, por mais que seja nomeado como
+      uma anexação, não existe qualquer captura do
+      objeto, apenas o deslocamento dele baseado na
+      instância, tal deslocamento que fica paracendo
+      uma anexação.
+      Obs.: a 'margem' dada não podem exceder grandes
+      quantias, uma restrição auto imposta; já que
+      "anexações" muitos espaçadas, não pareceriam,
+      bem,... uma "anexação". O limite aqui será
+      10 caractéres de distância no máximo.
+      """
+      if margem > 5:
+         mensagem = (
+            "excede o limite, portanto distorce "
+            + "a \"anexação\""
+         )
+         raise OverflowError(mensagem)
+      elif margem < 1:
+         raise OverflowError(
+            "não pode ser colocado colidindo "
+            + "com o objeto da instância"
+         )
+      ...
+
+      # move para a atual coordenada da instância.
+      barra.mover(self._ponto)
+      # dimensão do objeto barra.
+      (altura, largura) = barra.dimensao
+
+      match direcao:
+         case Direcao.DIREITA | Direcao.ESQUERDA:
+            barra.desloca(direcao, margem + largura)
+            # verifica se distância(horizontal) é ampla?
+            dx = abs(self._ponto.x-barra._ponto.x)
+            if dx > (self._largura + margem):
+               ajuste = dx - (self._largura + margem)
+               barra.desloca(direcao.oposta(), ajuste)
+            ...
+         case Direcao.CIMA:
+            barra.desloca(direcao, margem + altura)
+         case Direcao.BAIXO:
+            barra.desloca(direcao, margem + self._altura)
+         case _:
+            raise Exception("ainda não implementado")
+      ...
    ...
 ...
 
 class Classes(unittest.TestCase):
    "teste referentes as classe 'BarraProgresso'"
+   def runTest(self):
+      self.escalasDeCores()
    def desenhaBarra(self):
-      janela = JanelaDebug(2500)
+      janela = JanelaDebug(2.0)
       # instanciando e visualizando...
       b = BarraProgresso(janela.ref)
       b1 = BarraProgresso(
@@ -348,7 +454,7 @@ class Classes(unittest.TestCase):
    ...
    @unittest.expectedFailure
    def quebraComArgumentosErrados(self):
-      janela = JanelaDebug(2500)
+      janela = JanelaDebug(2.5)
       try:
          BarraProgresso(
             janela.ref, altura=7, largura=30,
@@ -362,7 +468,7 @@ class Classes(unittest.TestCase):
          raise curses.error()
    ...
    def metodoPreenche(self):
-      janela = JanelaDebug(4500)
+      janela = JanelaDebug(4.5)
       # instanciando e visualizando...
       b = BarraProgresso(janela.ref)
       b.preenche(0.15); b();
@@ -376,7 +482,7 @@ class Classes(unittest.TestCase):
    ...
    @unittest.expectedFailure
    def overflowMetodoPreenche(self):
-      janela = JanelaDebug(500)
+      janela = JanelaDebug(5.0)
       # instanciando e visualizando...
       b = BarraProgresso(janela.ref)
       b.preenche(0.15); b();
@@ -395,7 +501,7 @@ class Classes(unittest.TestCase):
       janela.encerra()
    ...
    def retocandoPreenche(self):
-      janela = JanelaDebug(4500)
+      janela = JanelaDebug(4.5)
       # instanciando e visualizando...
       barra = BarraProgresso(janela.ref)
       barra.preenche(0.15); barra();
@@ -404,7 +510,7 @@ class Classes(unittest.TestCase):
       janela.encerra()
    ...
    def demonstracaoDescarregamento(self):
-      janela = JanelaDebug(500)
+      janela = JanelaDebug(0.5)
       # instanciando e visualizando...
       percentual = 1.00
       barra = BarraProgresso(
@@ -412,17 +518,17 @@ class Classes(unittest.TestCase):
          largura=60, altura=6
       )
       while percentual > 0:
-         janela.ref.erase()
+         janela.limpa()
          barra.preenche(percentual)
          # renderizando a animação ...
          barra()
          # diminuindo percentual e pausa.
-         percentual -= 0.05; curses.napms(800)
+         percentual -= 0.05; janela.congela(0.8)
       ...
       janela.encerra()
    ...
    def duasBarras(self):
-      janela = JanelaDebug(500)
+      janela = JanelaDebug(0.5)
       # instanciando e visualizando...
       percentual_maior = 1.00
       percentual_menor = 1.0
@@ -436,7 +542,7 @@ class Classes(unittest.TestCase):
       )
       # primeiro apenas a animação do maior.
       while percentual_maior > 0:
-         janela.ref.erase()
+         janela.limpa()
          barra.preenche(percentual_maior)
          minibarra.preenche(percentual_menor)
          # renderizando a animação ...
@@ -447,7 +553,7 @@ class Classes(unittest.TestCase):
       ...
       # agora a mini barra de 1min.
       while percentual_menor > 0:
-         janela.ref.erase()
+         janela.limpa()
          minibarra.preenche(percentual_menor)
          # renderizando a animação ...
          barra(); minibarra()
@@ -458,7 +564,7 @@ class Classes(unittest.TestCase):
       janela.encerra()
    ...
    def escalasDeCores(self):
-      janela = JanelaDebug(500)
+      janela = JanelaDebug(0.5)
       barra_i = BarraProgresso(
          janela.ref, posicao=Ponto(10, 21),
          largura=45, altura=3
@@ -470,7 +576,7 @@ class Classes(unittest.TestCase):
       percentual = 1.0
       # primeiro apenas a animação do maior.
       while percentual > 0:
-         janela.ref.erase()
+         janela.limpa()
          barra_i.preenche(percentual)
          barra_ii.preenche(percentual)
          # renderizando a animação ...
@@ -482,44 +588,43 @@ class Classes(unittest.TestCase):
       janela.encerra()
    ...
    def centralizandoBarra(self):
-      janela = JanelaDebug(500)
+      janela = JanelaDebug(0.5)
       barra = BarraProgresso(
          janela.ref, posicao=Ponto(4, 21),
          largura=45, altura=3
       ); barra()
-      curses.napms(1500)
-      janela.ref.erase()
+      janela.congela(1.5)
+      janela.limpa()
       barra.centraliza(); barra()
-      curses.napms(1500)
+      janela.congela(1.500)
       janela.encerra()
    ...
    def deslocamentoBasico(self):
-      janela = JanelaDebug(500)
+      # colocar tudo em um loop.
+      entradas = [
+         # direção, quantia de carácteres
+         # à descolar; e o tempo para mostra
+         # aquilo.
+         (Direcao.DIREITA, 10, 1.5),
+         (Direcao.ESQUERDA, 20, 1.5),
+         (Direcao.CIMA, 4, 0.9),
+         (Direcao.BAIXO, 10, 1.5)
+      ]
+      janela = JanelaDebug(0.500)
       barra = BarraProgresso(
          janela.ref, posicao=Ponto(4, 21),
          largura=45, altura=3
       ); barra()
       curses.napms(1500)
       # centraliza a instância criada.
-      janela.ref.erase()
+      janela.limpa()
       barra.centraliza(); barra()
       curses.napms(1500)
-      # move ela 10 caractéres para direita.
-      barra.desloca(Direcao.DIREITA, 10)
-      janela.ref.erase(); barra()
-      curses.napms(1500)
-      # move ela 20 caractéres à esquerda.
-      barra.desloca(Direcao.ESQUERDA, 20)
-      janela.ref.erase(); barra()
-      curses.napms(1500)
-      # erge '7 caractéres' ela.
-      barra.desloca(Direcao.CIMA, 4)
-      janela.ref.erase(); barra()
-      curses.napms(900)
-      # então move '10 abaixo'.
-      barra.desloca(Direcao.BAIXO, 10)
-      janela.ref.erase(); barra()
-      curses.napms(1_500)
+      for (d, s, t) in entradas:
+         barra.desloca(d, s)
+         janela.limpa(); barra()
+         janela.congela(t)
+      ...
       janela.encerra()
    ...
    @unittest.expectedFailure
@@ -527,9 +632,9 @@ class Classes(unittest.TestCase):
       janela = JanelaDebug(3_500)
       barra = BarraProgresso(janela.ref)
       barra.centraliza(); barra()
-      from random import choice 
+      from random import choice
       direcao = choice(
-         (Direcao.CIMA, Direcao.DIREITA, 
+         (Direcao.CIMA, Direcao.DIREITA,
          Direcao.ESQUERDA, Direcao.BAIXO)
       )
       while True:
@@ -541,16 +646,105 @@ class Classes(unittest.TestCase):
             janela.encerra()
             # relançando erro.
             raise OverflowError()
-         janela.ref.erase()
-         curses.napms(900)
+         janela.limpa()
+         janela.congela(0.9)
       ...
       janela.encerra()
+   ...
+   @unittest.skipIf(
+     get_terminal_size().columns < 151,
+     "tela muito pequena para esboçar desenhos"
+   )
+   def anexacaoBarras(self):
+      janela = JanelaDebug(4.0)
+      # será anexada a direita.
+      # próximo ao canto-superior-esquerdo.
+      b1 = BarraProgresso(janela.ref)
+      # próximo ao centro, um pouco à esquerda.
+      b2 = BarraProgresso(janela.ref, altura=3, largura=40)
+      b2.centraliza(); b2.desloca(Direcao.DIREITA, 14);
+      b2.centraliza(); b2.desloca(Direcao.BAIXO, 2);
+      b2.desloca(Direcao.ESQUERDA, 20)
+      # próximo canto-inferior-direito.
+      b3 = BarraProgresso(
+         janela.ref, altura=8,
+         largura=20,
+         posicao=Ponto(23, 120)
+      )
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      # primeira anexação...
+      janela.limpa()
+      b2.anexa(Direcao.CIMA, b3)
+      b2.anexa(Direcao.DIREITA, b1)
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      # segunda anexação...
+      b1.anexa(Direcao.BAIXO, b3)
+      janela.limpa()
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      # terceira anexação...
+      b1.anexa(Direcao.CIMA, b2)
+      janela.limpa()
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      # quarta anexação...
+      b2.anexa(Direcao.CIMA, b3)
+      janela.limpa()
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      # quinta anexação...
+      b1.anexa(Direcao.ESQUERDA, b2)
+      b2.anexa(Direcao.ESQUERDA, b3)
+      janela.limpa()
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      # sexta anexação...
+      b3.anexa(Direcao.CIMA, b2)
+      b3.anexa(Direcao.DIREITA, b1)
+      janela.limpa()
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      # sétima anexação...
+      b2.anexa(Direcao.CIMA, b3)
+      b2.anexa(Direcao.BAIXO, b1)
+      janela.limpa()
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      # oito anexação...
+      b3.anexa(Direcao.DIREITA, b1)
+      b1.anexa(Direcao.BAIXO, b2)
+      janela.limpa()
+      b1(); b2(); b3();
+      janela.congela(0.9)
+      janela.encerra()
+   ...
+   @unittest.expectedFailure
+   def anexacaoTransborda(self):
+      j = JanelaDebug(4000)
+      # será anexada a direita.
+      # próximo ao canto-superior-esquerdo.
+      b1 = BarraProgresso(j.ref)
+      # próximo ao centro, um pouco à esquerda.
+      b2 = BarraProgresso(j.ref, altura=3, largura=40)
+      try:
+         # o erro ocorre nesta chamada.
+         b1.anexa(Direcao.CIMA, b2, margem=3)
+         # está aqui, não chega a executar.
+         b1(); b2();
+      except OverflowError:
+         # encerra a janela.
+         j.encerra()
+         import sys
+         # relançando o erro.
+         (excecao, info, _) = sys.exc_info()
+         print("exceção que foi pega: '%s'" % info); del sys
+         raise excecao
+      finally:
+         j.encerra()
    ...
 ...
 
 if __name__ == "__main__":
    unittest.main(verbose=2)
-
-# o que será importado:
-__all__ = ("BarraProgresso", "Ponto", "Direcao")
-...

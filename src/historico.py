@@ -147,9 +147,7 @@ from unittest import (TestCase, main, skip)
 
 class Teste(TestCase):
    def visualizacao_do_enum(self):
-      for x in Visualizacao:
-         print(x)
-   ...
+      for x in Visualizacao: print(x)
 
    @skip("foi inicialmente feito apenas para visualiza um input inicial.")
    def carrega_modo_inicialmente(self):
@@ -168,5 +166,6 @@ class Teste(TestCase):
    def ajeitando_antigos_comandos_passados(self):
       todos = carrega_historico()
       conserta_comandos(todos)
+   ...
 ...
 
