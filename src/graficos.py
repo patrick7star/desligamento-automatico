@@ -1,60 +1,80 @@
+"""
+   Aqui cuida-se especificamente da parte gráfica do programa. Sera feita 
+ no 'ncurses' do Python especificamente.
+"""
+# o que será exportado:
+__all__ = [ "PROGRESSO_ATOMO", "inicia_grafico", "Acao"]
 
-"""
-   Aqui cuida-se especificamente da parte
-gráfica do programa. Sera feita no 'ncurses'
-do Python especificamente.
-"""
+# Adicionando biblioteca externas na lista de 'importing'.
+from sys import (path as LIB)
+from linque import (caminho_do_projeto_do_programa)
+
+programa_dir = caminho_do_projeto_do_programa()
+biblioteca_externa = programa_dir.joinpath("lib")
+
+if __debug__:
+   print(biblioteca_externa)
+LIB.append(str(biblioteca_externa))
 
 # biblioteca do Python:
 import curses
 # própria biblioteca:
 from texto_desenho.forma_palavras import forma_string
-from utilitarios.src.legivel import tempo as ul_tempo
-from utilitarios.src.tempo import Temporizador
-
+#from utilitarios.src.legivel import (tempo as ul_tempo)
+from legivel import (tempo as ul_tempo)
+from tempo import (Temporizador)
+#from utilitarios.src.tempo import (Temporizador)
+# Importes para testes-unitários.
+from unittest import (TestCase, main, skip, skipIf)
+from progresso import (BarraProgresso, Direcao, Ponto)
+from janelas import * 
+from os import get_terminal_size
+from random import randint
 
 # constantes de personalização.
 PROGRESSO_ATOMO = ' '
 
-# o que será exportado:
-__all__ = (
-   "PROGRESSO_ATOMO",
-   "inicia_grafico",
-)
+# === === === === === === === === === === === === === === === === === === =
+#                       Implementações das Funções
+# === === === === === === === === === === === === === === === === === === = 
+def centralizas_barras(b: BarraProgresso, bm: BarraProgresso) -> None:
+   b.centraliza()
+   b.anexa(Direcao.BAIXO, bm)
 
+   (N, n) = (b.dimensao[1], bm.dimensao[1])
 
-def inicia_grafico(timer, mensagem_final="desligando"):
+   bm.desloca(Direcao.BAIXO, 2)
+   # computando deslocamento horizontal.
+   bm.desloca(Direcao.DIREITA, (N-n) // 2)
+
+def controle_do_teclado(janela: curses.window) -> None:
+   try:
+      code = janela.getch()
+      tecla = chr(code).lower()
+   except ValueError:
+      tecla = 'a'
+   finally: pass
+
+   if tecla == 's':
+      del janela
+      raise KeyboardInterrupt("tecla certa 's' foi pressionada")
+
+def inicia_grafico(timer, mensagem_final="desligando", 
+  acao=Acao.Desliga) -> None:
    """
-   a execução de todo o visual do programa,
-   do seu arranjo de tela, até a animação
-   que ele toca.
+     A execução de todo o visual do programa, do seu arranjo de tela, até 
+   a animação que ele toca.
    """
    # inclui contagem regressiva no minuto final.
    if __debug__:
       MEIA_HORA = 60 * 5 // 2
    else:
       MEIA_HORA = 3600 // 2
-   janela = Janela(1.2, Janela.TAXA_PADRAO)
+
+   janela = Janela(1.2, Janela.TAXA_PADRAO, acao=acao, timer=timer)
    barra_acionada = False
    outra_barra = timer > MEIA_HORA
 
-   # importando aqui dentro, pois pode criar
-   # algo circular, se feito na 'main thread'
-   # do programa. Como tal função é chamada
-   # apenas uma vez por execução, o custo
-   # computacional não será tão grande.
-   from progresso import (Ponto, BarraProgresso, Direcao)
-   global Ponto, BarraProgresso
-
-   def centralizas_barras(b, bm):
-      b.centraliza()
-      b.anexa(Direcao.BAIXO, bm)
-      (N, n) = (b.dimensao[1], bm.dimensao[1])
-      bm.desloca(Direcao.BAIXO, 2)
-      # computando deslocamento horizontal.
-      bm.desloca(Direcao.DIREITA, (N-n)//2)
-   ...
-   #desenha_barra(janela)
    (H, L) = janela.dimensao()
    largura_barra = int(L * 0.70)
    meio = Ponto((H-5)//2, (L-largura_barra)//2)
@@ -76,52 +96,44 @@ def inicia_grafico(timer, mensagem_final="desligando"):
 
    while timer():
       janela.limpa()
-      try:
-         tecla = chr(janela.ref.getch()).lower()
-      except ValueError:
-         tecla = 'a'
-      finally: pass
-      if tecla == 's':
-         del janela
-         raise KeyboardInterrupt("tecla certa 's' foi pressionada")
-      ...
+      # Qualquer pressionamento de tecla, será tradado na função abaixo.
+      controle_do_teclado(janela.ref)
+
       # centraliza barra se necessário.
       if janela.dimensao() != atual_dimensao:
          centralizas_barras(barra, barraminuto)
          # valor atual foi atualizado.
          atual_dimensao = janela.dimensao()
-      ...
 
-      contagem_str = ul_tempo(
-         timer.agendado().total_seconds(),
-         arredonda=True,
-         acronomo=True
-      )
+      decorrido = timer.agendado().total_seconds()
+      contagem_str = ul_tempo(decorrido, arredonda=True, acronomo=True)
       info_de_tempo(janela.ref, contagem_str)
       percentual = 1.0 - timer.percentual()
       barra.preenche(percentual)
       barra()
+      janela.desenha()
 
-      # troca para o timer de 1min.
-      # só se o timer foi marcado com mais de meia-hora.
+      # Troca para o timer de 1min. só se o timer foi marcado com mais de 
+      # meia-hora.
       if outra_barra:
          if (timer < 60) and (not barra_acionada):
             restante = Temporizador(60)
             barra_acionada = True
+
          elif timer < 60 and barra_acionada:
-            # barra complementar de um minito mais ou menos.
-            #desenha_barra_complementa(janela)
+            # Barra complementar de um minito mais ou menos.
             # um percentual decrescente(%).
             percentual = 1.0 - restante.percentual()
-            #preenche_barra_complementar(janela, percentual)
             barraminuto.preenche(percentual)
             barraminuto()
-         ...
-      ...
 
-      # atualização de tela em quase 1min.
+         else: 
+            pass
+
+      # Atualização de tela em quase 1min.
       janela.congela(0.8)
       janela.limpa()
+
    else:
       janela.limpa()
       # cria texto-desenhado.
@@ -133,7 +145,6 @@ def inicia_grafico(timer, mensagem_final="desligando"):
       escreve_no_curses(janela.ref, posicao, texto_matriz)
       janela.ref.refresh()
    ...
-...
 
 # Computa o lado superior esquerdo, para que
 # se possa desenhar a barra de progresso como
@@ -144,7 +155,6 @@ def computa_altura(janela, altura_objeto):
    h = altura_objeto
    (altura, _) = janela.getmaxyx()
    return (altura - (h+2) //2) // 2
-...
 
 def info_de_tempo(janela, texto):
    matriz = forma_string(texto)
@@ -163,7 +173,6 @@ def info_de_tempo(janela, texto):
          janela.addch(y, x, matriz[lin][col])
       ...
    ...
-...
 
 def escreve_no_curses(janela, ponto, texto_matriz):
    M = texto_matriz
@@ -174,7 +183,6 @@ def escreve_no_curses(janela, ponto, texto_matriz):
       for col in range(largura):
          janela.addch(y+lin, x+col, M[lin][col])
    ...
-...
 
 # dado a dimensão do objeto de texto, cacula
 # o canto-superior-esquerdo para que seja
@@ -185,14 +193,10 @@ def posicao_centralizada(janela, altura, largura):
       (At - a) // 2,
       (Lt - l) // 2
    )
-...
 
-from unittest import (TestCase, main, skip, skipIf)
-from progresso import (BarraProgresso, Direcao, Ponto)
-from janelas import * 
-from os import get_terminal_size
-from random import randint
-
+# === === === === === === === === === === === === === === === === === === =
+#                           Testes Unitários
+# === === === === === === === === === === === === === === === === === === = 
 class IniciaGraficos(TestCase):
    """
    testes/e protótipos de vários layouts
@@ -439,7 +443,6 @@ class IniciaGraficos(TestCase):
       ...
       janela.encerra()
    ...
-...
 
 if __name__ == "__main__":
    main(verbose=1)

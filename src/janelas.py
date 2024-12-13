@@ -1,27 +1,302 @@
 
 # o que será importado.
-__all__ = ["JanelaDebug", "Janela"]
+__all__ = ["Janela", "Acao", "PapeisP", "PapeisB", "Cores"]
 
 from threading import Thread
-from curses import (
-   init_pair, init_color, napms, endwin,
-   use_default_colors, start_color, 
-   initscr, curs_set, COLOR_RED, COLOR_YELLOW,
-   COLOR_GREEN, A_BLINK, A_ITALIC, cbreak
-)
+from curses import *
+from time import (time as mede_tempo, strftime, gmtime, localtime)
+from enum import (auto, IntEnum, Enum)
+from datetime import (datetime as DT, timedelta)
+#from utilitarios.src.legivel import (tempo as Tempo)
+from legivel import (tempo as Tempo)
+from tempo_ligado import *
+
+class Cores(IntEnum):
+   VerdeEscuro = 96
+   Vermelho     = auto()
+   Amarelo      = auto()
+   Verde        = auto()
+
+class PapeisP(IntEnum):
+   # Papeis de paredes.
+   Amarelo      = 80
+   Vermelho     = auto()
+   Azul         = auto()
+   Violeta      = auto()
+   Verde        = auto()
+
+class PapeisB(IntEnum):
+   # Papeis de paredes.
+   Amarelo      = 70
+   Vermelho     = auto()
+   Azul         = auto()
+   Violeta      = auto()
+   Verde        = auto()
+
+class Acao(Enum):
+   Suspende = auto()
+   Desliga = auto()
+
+   def __str__(self) -> str:
+      match self:
+         case Acao.Suspende:
+            return "Suspensão"
+         case Acao.Desliga:
+            return "Desligamento"
+         case _ :
+            raise Exception("Não implementado para tal")
+
+class Horario:
+   def __init__(self) -> None:
+      self.formatacao = ""
+      pass
+
+   def desenha(self, tela: window, Y: int, X: int):
+      horario = localtime()
+      self.formatacao = strftime(" %2H:%2M ", horario)
+
+      tela.attron(A_UNDERLINE)
+      tela.addstr(Y, X, self.formatacao, color_pair(PapeisP.Violeta))
+      tela.attroff(A_UNDERLINE)
+
+   def __len__(self) -> int:
+      return len(self.formatacao)
+      
+class AtualAcao:
+   BRANCO = ord(' ')
+   SIMBOLO = ord('.')
+   LIMITE = 0.9 
+   MAX = 5
+
+   def __init__(self, texto):
+      assert isinstance(texto, str)
+
+      # Cronometragem de tempo.
+      self.inicio = mede_tempo()
+      self.contagem = 0
+      self.mensagem = texto 
+      self.impressao = bytearray(texto, encoding="latin1")
+      self.limite = AtualAcao.MAX
+
+      for _ in range(self.limite):
+         char = AtualAcao.BRANCO
+         self.impressao.append(char)
+
+      # Acochoa o ínicio para não ficar grudados com outros externos.
+      # É obrigatório contabilizar tal inserção nos índices e cálculos
+      # de comprimentos abaixo.
+      char = AtualAcao.BRANCO
+      self.impressao.insert(0, char)
+
+   def desenha(self, tela: window, Y: int, X: int):
+      assert isinstance(tela, window)
+      assert isinstance(Y, int)
+      assert isinstance(X, int)
+
+      # Computa tempo decorrido desde o íncio da última cronometração.
+      decorrido = mede_tempo() - self.inicio
+
+      if decorrido >= AtualAcao.LIMITE:
+         code = AtualAcao.SIMBOLO
+         t = len(self.mensagem)
+         # Computa índice do próximo caractére preenchido na string.
+         M = AtualAcao.MAX
+         c = self.contagem
+         self.impressao[t + 1 + (c % M)] = code
+         self.contagem += 1
+         # Reseta recontagem de tempo.
+         self.inicio = mede_tempo()
+
+      # Limpa parte pontinhada novamente, se atingiu o limite.
+      if self.contagem % AtualAcao.MAX == 0:
+         for p in range(AtualAcao.MAX):
+            t = len(self.mensagem)
+            char = AtualAcao.BRANCO
+            self.impressao[t + 1 + p] = char
+
+      msg = self.impressao.decode(encoding="latin1")
+      cor = color_pair(PapeisP.Amarelo)
+
+      tela.attron(A_BOLD)
+      tela.addstr(Y, X, msg, cor)
+      tela.attroff(A_BOLD)
+
+   def __len__(self) -> int:
+      return len(self.mensagem) + 1 + AtualAcao.MAX
+
+class Debug:
+   def __init__(self): 
+      if __debug__:
+         self.msg = " modo debug "
+      else:
+         self.msg = " Normal "
+
+   def desenha(self, tela: window, Y: int, X: int):
+      assert isinstance(tela, window)
+      assert isinstance(Y, int)
+      assert isinstance(X, int)
+
+      if __debug__:
+         cor = int(PapeisP.Vermelho)
+         tela.attron(A_BOLD)
+         tela.addstr(Y, X, self.msg, color_pair(cor))
+         tela.attroff(A_BOLD)
+      else:
+         cor = int(PapeisB.Azul)
+         tela.attron(A_BOLD)
+         tela.addstr(Y, X, self.msg, color_pair(cor))
+         tela.attroff(A_BOLD)
+
+
+   def __len__(self):
+      return len(self.msg)
+
+class BarraStatus:
+   def __init__(self, janela, lista: list):
+      assert isinstance(lista, list)
+      assert isinstance(janela, window)
+
+      self.tela = janela
+      self.objetos = lista 
+      #m = BarraStatus.MARGEM
+      m = 0
+      lengths = map(lambda o: len(o) + m, lista)
+      self.X = 1 + sum(lengths)
+
+   def desenha(self) -> None:
+      (y, x) = self.tela.getmaxyx()
+      tela = self.tela
+      Y = y - 2; X = 1
+      
+      for obj in self.objetos:
+         obj.desenha(tela, Y, X)
+         X += len(obj)
+
+      self.tela.refresh()
+
+class Percentual:
+   def __init__(self, timer) -> None:
+      self.inicial = 1.0
+      # Referência do temporizador, para calcular o percentual.
+      self.contador = timer
+      p = self.contador.percentual() * 100.0
+      self.formatacao = " {:3.0f}% ".format(p)
+
+   def atualiza(self):
+      p = self.contador.percentual() * 100.0
+      self.formatacao = " {:3.0f}% ".format(p)
+
+   def desenha(self, tela: window, Y: int, X: int):
+      self.atualiza()
+      tela.attron(A_DIM)
+      tela.addstr(Y, X, self.formatacao, color_pair(PapeisP.Vermelho))
+      tela.attroff(A_DIM)
+
+   def __len__(self) -> int:
+      return len(self.formatacao)
+
+def definicoes_de_todas_cores() -> None:
+   # Definindo novas cores...
+   init_color(18, 0, 255, 17)
+   VERDE_ESCURO = 18 # Bom!
+
+   # Paletas de cores.
+   init_pair(96, VERDE_ESCURO, -1)
+   init_pair(97, COLOR_RED, -1)
+   init_pair(98, COLOR_YELLOW, -1)
+   init_pair(99, COLOR_GREEN, -1)
+
+   # Papéis de parede com fonte negra:
+   init_pair(80, COLOR_BLACK, COLOR_YELLOW)
+   init_pair(81, COLOR_BLACK, COLOR_RED)
+   init_pair(82, COLOR_BLACK, COLOR_BLUE)
+   init_pair(83, COLOR_BLACK, COLOR_MAGENTA)
+   init_pair(84, COLOR_BLACK, COLOR_GREEN)
+   # Papéis de parede com fonte branca:
+   init_pair(70, COLOR_WHITE, COLOR_YELLOW)
+   init_pair(71, COLOR_WHITE, COLOR_RED)
+   init_pair(72, COLOR_WHITE, COLOR_BLUE)
+   init_pair(73, COLOR_WHITE, COLOR_MAGENTA)
+   init_pair(74, COLOR_WHITE, COLOR_GREEN)
+
+class SistemaLigado:
+   "LED que informa quanto tempo este computador já está ligado."
+   def __init__(self) -> None:
+      (self.segundos, _) = tempos_importantes()
+      self.contador = DT.today()
+      vl = self.segundos.total_seconds()
+      self.fmt = (lambda X: " Ligado: %s " % Tempo(X))
+      self.formatacao = self.fmt(vl)
+
+   def atualiza(self):
+      """
+        Obtém o novo valor do tempo ligado(em segundos), baseado no quanto
+      está ligado. Isso porque não faz sentido algo que já avançou horas,
+      ficar verificando novos valores a cada quantia de segundos, não 
+      mudaria nada numa visualização humana no LED. 
+      """
+      decorrido = DT.today() - self.contador
+      MARCOS = (
+         timedelta(minutes=2), 
+         timedelta(minutes=5), 
+         timedelta(hours=1)
+      )
+
+      """
+        Caso esteja no estágio de minutos, inicial(mais que dois minutos), 
+      então atualiza a cada 30 segundos, já o estágio médio atualização de 
+      um em um minuto; no caso avançado, então é ritmo é 5min. Em horas, 
+      ou maior que isso, aí fica eterno a atualização de 32min.
+      """
+      # 2min à 5min:
+      primeira_faixa = (decorrido >= MARCOS[0] and decorrido < MARCOS[1]) 
+      # 5min à 1h:
+      segunda_faixa = (decorrido >= MARCOS[1] and decorrido < MARCOS[2]) 
+      # 1h ao infinito:
+      terceira_faixa = (decorrido >= MARCOS[1]) 
+
+      if primeira_faixa:
+         LIMITE = timedelta(seconds=30)
+      elif segunda_faixa:
+         LIMITE = timedelta(minutes=1)
+      elif terceira_faixa:
+         LIMITE = timedelta(minutes=32)
+      else:
+         # Para valore abaixo de 2min, atualiza com o frame do ncurses.
+         LIMITE = timedelta(seconds=0)
+         pass
+
+      if decorrido < LIMITE :
+         segs = self.segundos.total_seconds()
+         self.formatacao = self.fmt(segs)
+         (a, _) = tempos_importantes()
+         self.segundos = a
+         # Atualiza o contador ...
+         self.contador = DT.today()
+
+   def desenha(self, tela: window, Y: int, X: int):
+      cor = PapeisB.Verde
+
+      self.atualiza()
+      tela.attron(A_DIM)
+      tela.addstr(Y, X, self.formatacao, color_pair(cor))
+      tela.attroff(A_DIM)
+
+   def __len__(self) -> int:
+      return len(self.formatacao)
+
+
 # criando uma janela à partir da versão
 # 'debug', deveria ter sido o inverso, mas 
 # enfim. Está contém threading, portanto
 # executas buscas, impressões e etc,
 # indepedente se foi chamada para fazer tal.
 class Janela(Thread):
-   " para série de testes "
-
    # taxa padrão para atualização de 'quadros'
-   TAXA_PADRAO = 800 #milisegundos.
+   TAXA_PADRAO = 800    # milisegundos.
 
-   def __init__(self, segundos, taxa_atualizacao, 
-   automatico=False, rotulo=None) -> None:
+   def __init__(self, segundos, taxa_atualizacao, automatico=False, 
+     rotulo=None, acao=Acao.Desliga, timer=None) -> None:
       # construindo uma 'daemon thread'.
       Thread.__init__(self, daemon=True) 
       # confirmação para executar tal objeto como 'thread'.
@@ -43,6 +318,8 @@ class Janela(Thread):
       # para miliseg.
       self._tempo_limite = int(segundos * 1_000)
       self._janela = initscr()
+      self._acao = acao
+
       # sua configuração:
       start_color()
       use_default_colors()
@@ -50,15 +327,8 @@ class Janela(Thread):
       # adicionado captura de tecla.
       cbreak()
       self._janela.nodelay(True)
-
-      # novas cores.
-      init_color(18, 0, 255, 17)
-      VERDE_ESCURO = 18 # Bom!
-      # paletas de cores.
-      init_pair(99, COLOR_GREEN, -1)
-      init_pair(98, COLOR_YELLOW, -1)
-      init_pair(97, COLOR_RED, -1)
-      init_pair(96, VERDE_ESCURO, -1)
+      # Iniciando pares de cores que se pode usar na construção.
+      definicoes_de_todas_cores()
 
       # põe um rótulo, seja a primeira vez, ou
       # com execuções continuas, por demanda.
@@ -70,16 +340,25 @@ class Janela(Thread):
          # primeira gravura de marca d'água.
          self._marca_dagua(self._rotulo)
       ...
-   ...
+      self.status = BarraStatus(
+         self._janela, 
+         [
+            Horario(), Debug(),
+            AtualAcao(str(self._acao)),
+            Percentual(timer),
+            SistemaLigado()
+         ]
+      )
+      #self.progresso = 
 
    # encerra programa semi-gráfico.
    def encerra(self):
       napms(self._tempo_limite)
       endwin()
-   ...
 
    def referencia(self):
       return self._janela
+
    ref = property(referencia, None, None, None)
 
    # método formal de limpesa da 'tela'.
@@ -89,10 +368,11 @@ class Janela(Thread):
          self._ciclos += 1
       else:
          self._ciclos = 0
+
       self._janela.erase()
+
       if self._marca_dagua_ativada:
          self._marca_dagua(self._rotulo)
-   ...
 
    # congela limpa de janela por algum tempo.
    def congela(self, segundos):
@@ -100,8 +380,8 @@ class Janela(Thread):
       if segundos >= 3 or segundos < 0.2:
          # para pegar as codificações antigas.
          raise OverflowError(
-            "mais de 3seg não é permitido"
-            +", ou menos que 1/5 de segundo"
+            "mais de 3seg não é permitido" +
+            ", ou menos que 1/5 de segundo"
          )
       ...
       # conversão em segundos.
@@ -115,196 +395,22 @@ class Janela(Thread):
       (y, x) = self._janela.getmaxyx()
       X = x - len(mensagem) - 2
       Y = y - 2
-      self._janela.addstr(
-         Y, X, mensagem,
-         A_BLINK | A_ITALIC
-      )
+      self._janela.addstr(Y, X, mensagem, A_BLINK | A_ITALIC)
    ...
 
    def dimensao(self):
       return self._janela.getmaxyx()
 
    def run(self): 
-      # sai disso, se não tiver dado
-      # permissão para tal.
+      # Sai disso, se não tiver dado permissão para tal.
       while self._atualizacao:
          self._janela.refresh()
          self.congela(self._taxa)
          self.limpa()
-      ...
-   ...
+
    def __del__(self):
       self.encerra()
-   '''
-   def __getattribute__(self, atributo):
-      print("atributo:", atributo)
-      if atributo in ("addch", "addstr"):
-         object.__getattribute__(self._janela, atributo)
-      else:
-         object.__getattribute__(self, atributo)
-   ...'''
+
+   def desenha(self):
+      self.status.desenha()
 ...
-
-class JanelaDebug(Janela):
-   """
-   Janela especial para debug, com várias
-   configurações limitadas.
-   """
-   def __init__(self) -> None:
-      Janela.__init__(self, 3.5, 0.8, rotulo="modo debug")
-      # comprimento do rótulo
-      self._comprimento = len(self._rotulo)
-      self._rotulo += "(%0.1fseg)" % (self._tempo_limite/1000)
-   ...
-   def aumenta_tempo_limite(self, novo: float):
-      if novo <= 14:
-         self._tempo_limite += int(novo * 1000)
-         self._rotulo = (
-            "%s(%0.1fseg)" % (
-            self._rotulo[0:self._comprimento],
-            self._tempo_limite/1000)
-         )
-   ...
-...
-   
-
-from unittest import (TestCase, main, skip, skipIf)
-from progresso import (BarraProgresso, Direcao, Ponto)
-from os import get_terminal_size
-from random import randint
-from queue import SimpleQueue
-from utilitarios.src.tempo import Temporizador
-
-class JanelaComum(TestCase):
-   def novaJanela(self):
-      janela = Janela(1.5, rotulo="normal", taxa_atualizacao=0.5)
-      janela.start()
-      #info_de_tempo(janela.ref, "30seg")
-      (_, L) = janela.dimensao()
-      barra_geral = BarraProgresso(
-         janela.ref, altura=6,
-         largura=int(L * 0.70)
-      )
-      barra_minuto = BarraProgresso(
-         janela.ref, altura=3,
-         largura=int(L * (0.70**2)),
-         mais_cores=True
-      )
-
-      # ajustando as barras.
-      barra_geral.centraliza()
-      barra_geral.desloca(Direcao.CIMA, 4)
-      barra_geral.anexa(Direcao.BAIXO, barra_minuto)
-      # temporizadores para cada barra.
-      contador_reverso = Temporizador(30)
-      contador_reversoI = Temporizador(10)
-
-      while contador_reverso():
-         # resetando o contador da barra-minuto.
-         if not contador_reversoI():
-            contador_reversoI = Temporizador(10)
-         #info_de_tempo(janela.ref, "30seg")
-         # preenchendo apenas para visualização.
-         pBG = 1.0 - contador_reverso.percentual()
-         pBM = 1.0 - contador_reversoI.percentual()
-         barra_minuto.preenche(pBM)
-         barra_geral.preenche(pBG)
-         # renderização...
-         barra_geral(); barra_minuto()
-         janela.congela(0.6)
-         # apagando tudo para reescreve novamente.
-         janela.limpa()
-      ...
-      janela.encerra()
-   ...
-   class LoopContinuo:
-      """
-       pega várias instruções, está sendo tuplas
-       com a quantidade de movimento para tal 
-       direção, e a própria 'Direção' também.
-       Executa-se tais instruções, na ordem dada
-       que é esquerda para direita na lista,
-       baseado na quantia demandada, e quando 
-       terminar todas elas, recomeça a instruções
-       novamente.
-      """
-      def __init__(self, instrucoes):
-         # as instrunções têm que ser válidas
-         # tipo, um inteiro e a direção que é
-         # para fazer.
-         os_argumentos_sao_validos = (
-            # todos argumentos tem que ser 'legítimos'.
-            all(
-               map(lambda t:
-                  # verifica se é uma tupla.
-                  (type(t) is tuple)
-                  # se a tupla tem apenas dois objetos nela.
-                  and (len(t) == 2)
-                  # se o primeiro é um 'inteiro'
-                  and (type(t[0]) is int)
-                  # e o segundo é uma 'Direção'.
-                  and (type(t[1]) is Direcao),
-               instrucoes)
-            )
-         )
-         if (not os_argumentos_sao_validos):
-            raise ValueError("revise os argumentos passados")
-         # atual instrução.
-         self.fila_de_instrucoes = SimpleQueue()
-         for (n, d) in instrucoes:
-            for _ in range(n):
-               self.fila_de_instrucoes.put(d)
-         ...
-      ...
-      def __call__(self) -> Direcao:
-         if (not self.fila_de_instrucoes.empty()): 
-            # pegando o primeiro elemento e,
-            # jogando no final da fila novamente.
-            remocao = self.fila_de_instrucoes.get()
-            self.fila_de_instrucoes.put(remocao)
-            return remocao
-         ...
-      ...
-   ...
-
-   def atualizacaoAutomatica(self):
-      janela = Janela(
-         0.8, automatico=True,taxa_atualizacao=0.5, 
-         rotulo="ativando parametro 'automatico'"
-      )
-      janela.start()
-
-      timer = Temporizador(58.6)
-      (limite_vertical, limite_horizontal) = janela.dimensao()
-      (x, y) = (0, 0)
-
-      # repete tais instrunções continuamente.
-      loop = JanelaComum.LoopContinuo([
-         (limite_vertical-1, Direcao.BAIXO),
-         (6, Direcao.DIREITA), 
-         (limite_vertical-1, Direcao.CIMA),
-         (9, Direcao.DIREITA), 
-      ])
-
-      while timer():
-         match loop():
-            case Direcao.CIMA:
-               y -= 1
-            case Direcao.BAIXO:
-               y += 1
-            case Direcao.DIREITA:
-               x += 1
-            case Direcao.ESQUERDA:
-               x -= 1
-         ...
-         janela.ref.addch(y, x, '@')
-         janela.ref.refresh()
-         janela.congela(janela._taxa)
-         janela.limpa()
-      ...
-      janela.encerra()
-   ...
-...
-
-if __name__ == "__main__":
-   main(verbose=1)

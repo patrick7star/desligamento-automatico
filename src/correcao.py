@@ -178,11 +178,6 @@ def cria_componente(string: str) -> Componente:
 def divide_em_componentes(string: str) -> Sequence[Componente]:
    return list(map(lambda s: Componente.cria(s), string.split()))
 
-def verifica_necessidade(cmd: Sequence[Componente]) ->  bool:
-   total = len(cmd) == 4
-   for i in range(1, 4):
-      pass
-...
 
 def decodifica_cmd(comando_str: str) -> str:
    """
@@ -194,6 +189,13 @@ def decodifica_cmd(comando_str: str) -> str:
    """
    # realiza processamento inicial.
    produto = divide_em_componentes(comando_str)
+
+   # se já estiver arrumado, apenas retorna-lô.
+   if verifica_necessidade(produto):
+      if __debug__: 
+         print ("já está completo o comando '%s'" % comando_str)
+      return comando_str
+
    # novo processamento de complementação do que falta e ordenação.
    novo_produto = complementa(produto)
 
@@ -214,6 +216,19 @@ def conserta_comandos(todos_cmd: Sequence[str]) -> Sequence[str]:
    return None
 ...
 
+def verifica_necessidade(cmd: Sequence[Componente]) ->  bool:
+   # tem que ter todos os quartro componentes.
+   tem_todos_componentes = (len(cmd) == 4)
+   if (not tem_todos_componentes): return False
+
+   # todos tem que seguir está ordem, sem mais: ação, modo e o tempo.
+   e_uma_acao = cmd[1].tipo_de_dado is Parte.ACAO
+   eo_modo = cmd[2].tipo_de_dado is Parte.MODO_VIEW
+   eo_tempo = cmd[3].tipo_de_dado is Parte.TEMPO
+
+   return (eo_modo and e_uma_acao and eo_tempo)
+...
+
 from unittest import TestCase
 
 class Teste(TestCase):
@@ -228,7 +243,7 @@ class Teste(TestCase):
    ...
 
    def novo_tipo_componente(self):
-      c = Componente("setup.py", Parte.PROGRAMA)
+      c = Componente("main.py", Parte.PROGRAMA)
       print(c[0], c[1])
       print(list(c))
       try:
@@ -255,4 +270,16 @@ class Teste(TestCase):
       comando = "desligador --desliga --modo-texto 13min"
       print("atual comando: '%s'" % comando)
       print("comando consertado: '%s'" % decodifica_cmd(comando))
+   ...
+
+   def verificando_necessidade_de_correcao(self):
+      from historico import carrega_historico
+      historico = carrega_historico()
+
+      for cmd in historico:
+         componentes = divide_em_componentes(cmd)
+         resultado = verifica_necessidade(componentes)
+         print ("[{:^8s}] {}".format(str(resultado).lower(), cmd))
+      ...
+   ...
 ...

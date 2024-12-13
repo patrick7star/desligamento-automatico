@@ -8,8 +8,10 @@ organizar e formatar a visualização da saída.
 # biblioteca externa:
 from print_color import print as PrintColorido
 # própria biblioteca:
-from utilitarios.src.legivel import tempo
-from utilitarios.src.tempo import (TempoEsgotadoError, Temporizador)
+#from utilitarios.src.legivel import tempo
+#from utilitarios.src.tempo import (TempoEsgotadoError, Temporizador)
+from legivel import (tempo as Tempo)
+from tempo import (TempoEsgotadoError, Temporizador)
 
 # o que será exportado?
 __all__ = {"inicia_modo_texto"}
@@ -27,7 +29,7 @@ def informacao(timer: Temporizador, o_que_e: str):
    t = timer.agendado().total_seconds()
    p = timer.percentual()
    try:
-      restante_str = tempo(t - t*p, acronomo = True)
+      restante_str = Tempo(t - t*p, acronomo = True)
    except:
       restante_str = "nenhum"
 
