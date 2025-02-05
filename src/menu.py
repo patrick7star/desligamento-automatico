@@ -1,5 +1,3 @@
-
-
 """
    O menu do programa usando a ferramenta já da linguagem. Quando o 
  o programa estiver mais maduro e fechado, a hora certa digo de acroplar 
@@ -9,7 +7,8 @@
 #o que será exportado?
 __all__ = ["converte_para_padrao", "MENU"]
 
-from argparse import (ArgumentParser, Namespace)
+from argparse import (ArgumentParser, Namespace, SUPPRESS)
+from sys import argv
 
 MENU = ArgumentParser(
    prog="Desligamento",
@@ -50,7 +49,16 @@ MENU.add_argument(
    """
 )
 
-from sys import argv
+MENU.add_argument(
+   "--ligado", '-l', required=False, action="store_true",
+   help="""
+   Informa quanto este computador está ligado. A versão de visualização do
+   'ncurses' já informa isso, quando tal é acionado, porém não existia,
+   até agora, uma opção para ver o tempo que o computador está operando sem
+   necessariamente acionar o desligamento/ou a suspensão.
+   """
+)
+
 
 def converte_para_padrao(argumento: Namespace) -> str:
    """
