@@ -16,6 +16,8 @@ from menu import *
 from notificacao import *
 from modo_texto import inicia_modo_texto
 from linque import (caminho_do_script, cria_linque_do_script)
+from tempo_ligado import (tempos_importantes)
+from legivel import (tempo as tempo_legivel)
 # Biblioteca do Python:
 from threading import Thread
 from sys import argv
@@ -23,6 +25,7 @@ from os import (system, chmod, chdir, getcwd, getenv, popen)
 from random import randint
 from stat import S_IRWXU, S_IXGRP, S_IXOTH
 from pathlib import PosixPath
+from datetime import (timedelta)
 # biblioteca externa:
 from print_color import print as PrintColorido
 
@@ -32,24 +35,6 @@ def muda_o_nivel_de_permisao_do_script():
    nivel_de_permissao = S_IRWXU | S_IXGRP | S_IXOTH
    caminho = caminho_do_script()
    chmod(caminho, nivel_de_permissao)
-
-cria_linque_do_script()
-muda_o_nivel_de_permisao_do_script()
-
-# o filtro e organização dos argumentos do programa acontem aqui:
-args_processados = MENU.parse_args()
-# grava o comando passado, depois de uma interpletação para o antigo
-# formato:
-comando_formado = converte_para_padrao(args_processados)
-grava_historico([comando_formado])
-
-# Agora com o processamento de argumentos próprio, podemos obter os três
-# mais importantes abaixo de maneira extramente simples. Eles são a ação
-# a sí tomar, o modo de visuazliação e o tempo necessário(forma em string
-# sem ainda conversão em segundos).
-MODO_SUSPENSAO = (args_processados.acao == "suspende")
-MODO_TEXTO = False if (args_processados.modo != "modo-texto") else True
-TEMPO_DEMANDADO = args_processados.TEMPO
 
 def stringtime_to_seg(string: str) -> float:
    caracteres = []
@@ -83,12 +68,6 @@ def stringtime_to_seg(string: str) -> float:
       return digitos * 3600 * 24
    else:
       raise Exception("não implementado para tal")
-...
-
-# pós conversão, converte o argumento sem arredondar?
-segundos = stringtime_to_seg(TEMPO_DEMANDADO)
-# criando temporizador.
-contador = Temporizador(segundos)
 
 def mensagemDeInterrupcao(porcentual):
    "entrega uma formatação de acordo com a cor da barra."
@@ -122,85 +101,130 @@ def mensagemDeInterrupcao(porcentual):
       color = "white",
       format = "bold"
    )
-...
 
-try:
-   # inicia também thread onde dispara notificações espaçada baseado no
-   # tempo total, para informar a hora.
-   info_constante = Thread(
-      target=alerta_horario,
-      args=(
-         # tem que ser um inteiro, pois por qualquer motivo
-         # bem difícil de responder, quebra com valores decimais.
-         int(contador.agendado().total_seconds()),
-         "Desligamento Automático"
-      ),
-      daemon=True,
-      # para encontrar thread no gerenciador de
-      # tarefas do sistema.
-      name="alerta-de-horarioDA"
-   )
-   if __debug__:
-      # no modo debug sempre dispara.
-      print(contador.agendado())
-      info_constante.start()
-   else:
-      # para acionar este mostrador de horário, o valor mínimo tem que ser
-      # mais de 7min.
-      if contador.agendado().total_seconds() > 7 * 60:
+def avalia_opcoes_passadas_no_terminal():
+   try:
+      # inicia também thread onde dispara notificações espaçada baseado no
+      # tempo total, para informar a hora.
+      info_constante = Thread(
+         target=alerta_horario,
+         args=(
+            # tem que ser um inteiro, pois por qualquer motivo
+            # bem difícil de responder, quebra com valores decimais.
+            int(contador.agendado().total_seconds()),
+            "Desligamento Automático"
+         ),
+         daemon=True,
+         # para encontrar thread no gerenciador de
+         # tarefas do sistema.
+         name="alerta-de-horarioDA"
+      )
+      if __debug__:
+         # no modo debug sempre dispara.
+         print(contador.agendado())
          info_constante.start()
       else:
-         print("info horário apenas com mais de 3min.")
+         # para acionar este mostrador de horário, o valor mínimo tem que ser
+         # mais de 7min.
+         if contador.agendado().total_seconds() > 7 * 60:
+            info_constante.start()
+         else:
+            print("info horário apenas com mais de 3min.")
+      ...
+
+      if (not MODO_TEXTO):
+         # inicialização do modo gráfico ...
+         if MODO_SUSPENSAO:
+            acao = Acao.Suspende
+            inicia_grafico(contador, mensagem_final="suspendendo", acao=acao)
+         else:
+            inicia_grafico(contador)
+      else:
+         # inicialização do modo de texto.
+         if MODO_SUSPENSAO:
+            inicia_modo_texto(contador, "suspensão")
+         else:
+            inicia_modo_texto(contador, "desligamento")
+
+   except KeyboardInterrupt:
+      # limpa tela em caso da interface ncurses ter quebrado a tela do 
+      # emulador de terminal.
+      system("stty sane")
+
+      # informação colorida, para ficar mais informativo.
+      mensagemDeInterrupcao(contador.percentual())
+
+      # saindo em sí do programa.
+      exit(0)
    ...
 
-   if (not MODO_TEXTO):
-      # inicialização do modo gráfico ...
+def aplica_o_processo_de_desligamento():
+   # execuntando o comando ...
+   if __debug__:
+      import logging
+
       if MODO_SUSPENSAO:
-         acao = Acao.Suspende
-         inicia_grafico(contador, mensagem_final="suspendendo", acao=acao)
+         print("suspensão acionada.")
+         logging.info("o sistema foi suspendido com sucesso.")
       else:
-         inicia_grafico(contador)
+         print("desligamento acionado.")
+         logging.info("o sistema foi desligado com sucesso.")
    else:
-      # inicialização do modo de texto.
       if MODO_SUSPENSAO:
-         inicia_modo_texto(contador, "suspensão")
+         comando = "systemctl suspend"
       else:
-         inicia_modo_texto(contador, "desligamento")
+         comando = "shutdown now"
 
-except KeyboardInterrupt:
-   # limpa tela em caso da interface ncurses ter quebrado a tela do 
-   # emulador de terminal.
-   system("stty sane")
+      stream = popen(comando)
+      code = stream.close()
 
-   # informação colorida, para ficar mais informativo.
-   mensagemDeInterrupcao(contador.percentual())
+      if code is not None:
+         print(
+            "[erro(%d)] houve um erro ao executar o comando '%s'." 
+            % (code, comando)
+         )
 
-   # saindo em sí do programa.
-   exit(0)
-...
+def formatacao_do_tempo_ligado(tempo: timedelta):
+   seg = tempo.total_seconds()
+   traducao = tempo_legivel(seg)
+   RECUO = "\t\b\b\b\b"
 
-# execuntando o comando ...
-if __debug__:
-   import logging
+   PrintColorido(
+      "\n{}O computador já está ligado por".format(RECUO), 
+      format='bold', color='yellow', end=" "
+   )
+   PrintColorido(traducao, format='underline', color='white', end=' ')
+   PrintColorido("direto.\n", format='bold', color='yellow')
 
-   if MODO_SUSPENSAO:
-      print("suspensão acionada.")
-      logging.info("o sistema foi suspendido com sucesso.")
-   else:
-      print("desligamento acionado.")
-      logging.info("o sistema foi desligado com sucesso.")
+# o filtro e organização dos argumentos do programa acontem aqui:
+args_processados = MENU.parse_args()
+
+# Agora com o processamento de argumentos próprio, podemos obter os três
+# mais importantes abaixo de maneira extramente simples. Eles são a ação
+# a sí tomar, o modo de visuazliação e o tempo necessário(forma em string
+# sem ainda conversão em segundos).
+MODO_SUSPENSAO = (args_processados.acao == "suspende")
+MODO_TEXTO = False if (args_processados.modo != "modo-texto") else True
+TEMPO_DEMANDADO = args_processados.TEMPO
+APENAS_TEMPO_LIGADO = args_processados.ligado
+
+cria_linque_do_script()
+muda_o_nivel_de_permisao_do_script()
+
+if APENAS_TEMPO_LIGADO:
+   (t, _) = tempos_importantes()
+   formatacao_do_tempo_ligado(t)
+
 else:
-   if MODO_SUSPENSAO:
-      comando = "systemctl suspend"
-   else:
-      comando = "shutdown now"
+   # grava o comando passado, depois de uma interpletação para o antigo
+   # formato:
+   comando_formado = converte_para_padrao(args_processados)
+   grava_historico([comando_formado])
+   # pós conversão, converte o argumento sem arredondar?
+   segundos = stringtime_to_seg(TEMPO_DEMANDADO)
+   # criando temporizador.
+   contador = Temporizador(segundos)
 
-   stream = popen(comando)
-   code = stream.close()
+   avalia_opcoes_passadas_no_terminal()
+   aplica_o_processo_de_desligamento()
 
-   if code is not None:
-      print(
-         "[erro(%d)] houve um erro ao executar o comando '%s'." 
-         % (code, comando)
-      )
-...
