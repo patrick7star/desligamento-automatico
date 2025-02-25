@@ -10,11 +10,16 @@ for excluído lá, tais arquivos continuam sendo baixados e replicados.
   Já no futuro, é bem provavelmente as capilaridades de tal script, com um
 nome bem forte, serão aumentadas.
 """
-
 from pathlib import (PosixPath)
 from glob import (glob as Glob)
 import unittest
+from os import (getenv)
+from subprocess import (Popen)
 
+
+# === === === === === === === === === === === === === === === === === === =
+#                Processo de Criação do Manifesto 
+# === === === === === === === === === === === === === === === === === === = 
 def todos_dirs_e_files_do_diretorio() -> set[PosixPath]:
    diretorio_do_programa = PosixPath.cwd()
    coletado = set([])
@@ -68,6 +73,48 @@ def cria_manifesto_em(diretorio: PosixPath) -> None:
       arquivo.write(linha)
    arquivo.close()
 
+# === === === === === === === === === === === === === === === === === === =
+#                 Instalação de Ambiente e Bibliotecas
+# === === === === === === === === === === === === === === === === === === = 
+def construcacao_de_biblioteca_virtual_pra_terceiros() -> None:
+   PY_EXE   = "/usr/bin/python3"
+   NOME_LIB = "alicepylibs"
+   caminho  = PosixPath(getenv("PYTHON_CODES"), NOME_LIB)
+
+   if not caminho.exists():
+      comando = Popen([PY_EXE, "-m", "venv", caminho])
+      if __debug__:
+         print("Comando:", comando)
+      saida = comando.wait()
+      assert (saida == 0)
+   else:
+      print("Biblioteca já existe no repositório local!")
+
+def instala_dependencias_requisitadas() -> None:
+   RAIZ = getenv("PYTHON_CODES")
+   EXECUTAVEL = "{}/alicepylibs/bin/pip".format(RAIZ)
+   DEPS_ARQ = "requirements.txt"
+
+   with open(DEPS_ARQ, "rt", encoding="latin1") as streaming:
+      for dependencia in streaming:
+         partes = dependencia.split("==")
+         programa = partes[0]
+         comando = Popen([EXECUTAVEL, "install", programa])
+
+         print("Comando a ser executado: '%s'" % str(comando))
+         assert (comando.wait() == 0)
+
+def processo_de_instacao_de_dependencias() -> None:
+   construcacao_de_biblioteca_virtual_pra_terceiros()
+   instala_dependencias_requisitadas()
+
+
+# === === === === === === === === === === === === === === === === === === =
+#              Execução do Proposito Geral do Script
+# --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- --- - 
+#   Aqui, todas as instruções criadas, e testadas no script, serão então
+# executadas na ordem de codificação.
+# === === === === === === === === === === === === === === === === === === = 
 if __name__ == "__main__":
    caminho = PosixPath.cwd()
    mensagem = """Criando arquivo manifesto em '{:s}'. Espera-se que tenha
@@ -76,6 +123,8 @@ if __name__ == "__main__":
 
    print(mensagem.format(str(caminho)))
    cria_manifesto_em(caminho)
+   print("\n\nInstalações de dependências do programa:")
+   instala_dependencias()
 
 # === === === === === === === === === === === === === === === === === === =
 #                           Testes Unitários
@@ -89,13 +138,21 @@ class Testes(unittest.TestCase):
 
       for path in output:
          print('\b\b\b\b\t- ', path)
-      print("Total de caminhos:", len(output))
+         print("Total de caminhos:", len(output))
 
    def aplicacao_do_primeiro_filtro(self):
       out = todos_dirs_e_files_do_diretorio()
       print("Total de caminhos:", len(out))
       filtra_diretorios_de_dados_e_cache(out)
       print("Total de caminhos:", len(out))
-   
+
    def criando_manifesto_de_teste(self):
       cria_manifesto_em(PosixPath("data"))
+
+   @unittest.skip("Modifica muita coisa importante")
+   def instalacao_de_dependencias_no_requirements(self):
+      instala_dependencias_requisitadas()
+
+   @unittest.skip("Modifica muita coisa importante")
+   def cria_ambiente_para_biblioteca(self):
+      construcacao_de_biblioteca_virtual_pra_terceiros()
