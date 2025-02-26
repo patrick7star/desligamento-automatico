@@ -7,6 +7,8 @@ __all__ = [ "PROGRESSO_ATOMO", "inicia_grafico", "Acao"]
 
 # Adicionando biblioteca externas na lista de 'importing'.
 from sys import (path as LIB)
+# Biblioteca do Python:
+import curses
 
 if __name__.endswith("src.graficos"):
    from .linque import (caminho_do_projeto_do_programa)
@@ -24,8 +26,6 @@ if __name__.endswith("src.graficos"):
    from lib.legivel import (tempo as ul_tempo)
    from lib.tempo import (Temporizador)
 
-   # Biblioteca do Python:
-   import curses
    # Importes para testes-unitários.
    from .progresso import (BarraMinuto, BarraProgresso, Direcao, Ponto)
    from .janelas import *
@@ -42,8 +42,6 @@ else:
    from legivel import (tempo as ul_tempo)
    from tempo import (Temporizador)
 
-   # Biblioteca do Python:
-   import curses
    # Própria biblioteca:
    from tempo import (Temporizador)
    # Importes para testes-unitários.
@@ -93,6 +91,8 @@ def inicia_grafico(timer, mensagem_final="desligando",
       janela.ref, altura=3, posicao = (meio + Ponto(5, 0)),
       largura = int(L * 0.70 * 0.70),
    )
+   segs = timer.agendado().total_seconds()
+   info = Info(janela.ref, ul_tempo(segs, acronomo=True, arredonda=True))
    # Grava dimensão atual da janela, e centralização inicial das barras.
    atual_dimensao = janela.dimensao()
    barra.centraliza()
@@ -101,6 +101,7 @@ def inicia_grafico(timer, mensagem_final="desligando",
    # Adiciona objetos extras a janela que os desenha e renderiza.
    janela += barra
    janela += barraminuto
+   janela += info
    temporizador_ja_criado = False
 
    while timer():
@@ -189,7 +190,26 @@ def posicao_centralizada(janela, altura, largura):
       (Lt - l) // 2
    )
 
+class Info:
+   def __init__(self, janela: curses.window, msg: str) -> None:
+      (Ymax, Xmax) = janela.getmaxyx()
+      texto_grade = forma_string(msg)
+      # Largura e altura, nesta ordem:
+      (L, H) = (len(texto_grade[0]), len(texto_grade))
+      self.dimensao = (L, H)
+      self.grade_msg = forma_string(msg) 
+      self.msg = msg
+      self.janela = janela
+      # Posição do objeto.
+      self.Y = Ymax // 2 - (H + 3)
+      self.X = (Xmax - L) // 2
 
+   def desenha(self) -> None:
+      (Y, X) = (self.Y, self.X)
+
+      for y in range(self.dimensao[1]):
+         for x in range(self.dimensao[0]):
+            self.janela.addch(Y + y, X + x, self.grade_msg[y][x])
 # === === === === === === === === === === === === === === === === === === =
 #                           Testes Unitários
 # === === === === === === === === === === === === === === === === === === =

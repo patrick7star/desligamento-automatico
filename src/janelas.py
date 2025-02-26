@@ -282,7 +282,6 @@ class SistemaLigado:
    def __len__(self) -> int:
       return len(self.formatacao)
 
-
 def cria_janela_e_a_configura() -> window:
    "Cria janela geral de desenho, configura-a e retorna para o chamador."
    janela = initscr()
@@ -359,34 +358,6 @@ class Janela():
 
    ref = property(referencia, None, None, None)
 
-   def limpa(self):
-      if hasattr(self, "_ciclos"):
-         # contabiliza upgrades de tela.
-         self._ciclos += 1
-      else:
-         self._ciclos = 0
-
-      if self._marca_dagua_ativada:
-         self._marca_dagua(self._rotulo)
-      # Limpa tela pra redesenho da grade.
-      self._janela.erase()
-
-   def congela(self, segundos):
-      """
-        Ao invés de usar puramente o 'napms', isso aqui faz o mesmo congela
-      por um tempo, um breve tempo, a visualização do que foi redesenhado.
-      """
-      # não permitido mais de 3segs e menos de 1/5seg.
-      if segundos >= 3 or segundos < 0.2:
-         # para pegar as codificações antigas.
-         raise OverflowError(
-            "mais de 3seg não é permitido" +
-            ", ou menos que 1/5 de segundo"
-         )
-      ...
-      # Conversão em segundos antes de congelar o fluxo por tal tempo.
-      napms(int(segundos * 1.0e3))
-
    def _marca_dagua(self, mensagem):
       # ciclos do loop infinito.
       (y, x) = self._janela.getmaxyx()
@@ -415,14 +386,16 @@ class Janela():
          obj.desenha()
 
    def renderizar(self):
+      self._janela.clear()
+      self._janela.refresh()
       self.desenha()
       self._janela.refresh()
       napms(int(1.0 * 1.0e3))
-      self._janela.clear()
-      self._janela.refresh()
 
    def __iadd__(self, obj):
       "Método, usando de operador para adicionar componentes externos."
       self.componentes.append(obj)
       return self
 ...
+
+            
