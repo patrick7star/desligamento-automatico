@@ -2,7 +2,6 @@
 # o que será importado.
 __all__ = ["Janela", "Acao", "PapeisP", "PapeisB", "Cores"]
 
-from threading import Thread
 from curses import *
 from time import (time as mede_tempo, strftime, gmtime, localtime)
 from enum import (auto, IntEnum, Enum)
@@ -61,11 +60,11 @@ class Horario:
 
    def __len__(self) -> int:
       return len(self.formatacao)
-      
+
 class AtualAcao:
    BRANCO = ord(' ')
    SIMBOLO = ord('.')
-   LIMITE = 0.9 
+   LIMITE = 0.9
    MAX = 5
 
    def __init__(self, texto):
@@ -74,7 +73,7 @@ class AtualAcao:
       # Cronometragem de tempo.
       self.inicio = mede_tempo()
       self.contagem = 0
-      self.mensagem = texto 
+      self.mensagem = texto
       self.impressao = bytearray(texto, encoding="latin1")
       self.limite = AtualAcao.MAX
 
@@ -125,7 +124,7 @@ class AtualAcao:
       return len(self.mensagem) + 1 + AtualAcao.MAX
 
 class Debug:
-   def __init__(self): 
+   def __init__(self):
       if __debug__:
          self.msg = " modo debug "
       else:
@@ -157,8 +156,7 @@ class BarraStatus:
       assert isinstance(janela, window)
 
       self.tela = janela
-      self.objetos = lista 
-      #m = BarraStatus.MARGEM
+      self.objetos = lista
       m = 0
       lengths = map(lambda o: len(o) + m, lista)
       self.X = 1 + sum(lengths)
@@ -167,12 +165,10 @@ class BarraStatus:
       (y, x) = self.tela.getmaxyx()
       tela = self.tela
       Y = y - 2; X = 1
-      
+
       for obj in self.objetos:
          obj.desenha(tela, Y, X)
          X += len(obj)
-
-      self.tela.refresh()
 
 class Percentual:
    def __init__(self, timer) -> None:
@@ -201,6 +197,7 @@ def definicoes_de_todas_cores() -> None:
    VERDE_ESCURO = 18 # Bom!
 
    # Paletas de cores.
+   init_pair(95, COLOR_BLUE, -1)
    init_pair(96, VERDE_ESCURO, -1)
    init_pair(97, COLOR_RED, -1)
    init_pair(98, COLOR_YELLOW, -1)
@@ -232,28 +229,28 @@ class SistemaLigado:
       """
         Obtém o novo valor do tempo ligado(em segundos), baseado no quanto
       está ligado. Isso porque não faz sentido algo que já avançou horas,
-      ficar verificando novos valores a cada quantia de segundos, não 
-      mudaria nada numa visualização humana no LED. 
+      ficar verificando novos valores a cada quantia de segundos, não
+      mudaria nada numa visualização humana no LED.
       """
       decorrido = DT.today() - self.contador
       MARCOS = (
-         timedelta(minutes=2), 
-         timedelta(minutes=5), 
+         timedelta(minutes=2),
+         timedelta(minutes=5),
          timedelta(hours=1)
       )
 
       """
-        Caso esteja no estágio de minutos, inicial(mais que dois minutos), 
-      então atualiza a cada 30 segundos, já o estágio médio atualização de 
-      um em um minuto; no caso avançado, então é ritmo é 5min. Em horas, 
+        Caso esteja no estágio de minutos, inicial(mais que dois minutos),
+      então atualiza a cada 30 segundos, já o estágio médio atualização de
+      um em um minuto; no caso avançado, então é ritmo é 5min. Em horas,
       ou maior que isso, aí fica eterno a atualização de 32min.
       """
       # 2min à 5min:
-      primeira_faixa = (decorrido >= MARCOS[0] and decorrido < MARCOS[1]) 
+      primeira_faixa = (decorrido >= MARCOS[0] and decorrido < MARCOS[1])
       # 5min à 1h:
-      segunda_faixa = (decorrido >= MARCOS[1] and decorrido < MARCOS[2]) 
+      segunda_faixa = (decorrido >= MARCOS[1] and decorrido < MARCOS[2])
       # 1h ao infinito:
-      terceira_faixa = (decorrido >= MARCOS[1]) 
+      terceira_faixa = (decorrido >= MARCOS[1])
 
       if primeira_faixa:
          LIMITE = timedelta(seconds=30)
@@ -286,21 +283,32 @@ class SistemaLigado:
       return len(self.formatacao)
 
 
-# criando uma janela à partir da versão
-# 'debug', deveria ter sido o inverso, mas 
-# enfim. Está contém threading, portanto
-# executas buscas, impressões e etc,
-# indepedente se foi chamada para fazer tal.
-class Janela(Thread):
-   # taxa padrão para atualização de 'quadros'
-   TAXA_PADRAO = 800    # milisegundos.
+def cria_janela_e_a_configura() -> window:
+   "Cria janela geral de desenho, configura-a e retorna para o chamador."
+   janela = initscr()
 
-   def __init__(self, segundos, taxa_atualizacao, automatico=False, 
+   # sua configuração:
+   start_color()
+   use_default_colors()
+   curs_set(0)
+   # adicionado captura de tecla.
+   nocbreak()
+   janela.nodelay(True)
+
+   return janela
+
+class Janela():
+   """
+      Criando uma janela à partir da versão 'debug', deveria ter sido o 
+   inverso, mas enfim. Está contém threading, portanto executas buscas, 
+   impressões e etc, indepedente se foi chamada para fazer tal.
+   """
+   # Taxa padrão para atualização de 'quadros' em milisegundos.
+   TAXA_PADRAO = 800
+
+   def __init__(self, segundos, taxa_atualizacao, automatico=False,
      rotulo=None, acao=Acao.Desliga, timer=None) -> None:
-      # construindo uma 'daemon thread'.
-      Thread.__init__(self, daemon=True) 
-      # confirmação para executar tal objeto como 'thread'.
-      self._atualizacao = automatico 
+      self._atualizacao = automatico
       # taxa de atualização dos quadros da janela.
       if taxa_atualizacao is None:
          self._taxa = Janela.TAXA_PADRAO / 1000
@@ -309,24 +317,13 @@ class Janela(Thread):
          self._taxa = taxa_atualizacao
       if segundos > 20 or segundos < 0.5:
          # para pegar as codificações antigas.
-         raise OverflowError(
-            "mais de 20seg não é permitido"
-            +", ou menos que meio segundo"
-         )
-      ...
-      # converte o tempo passado em segundso
-      # para miliseg.
-      self._tempo_limite = int(segundos * 1_000)
-      self._janela = initscr()
-      self._acao = acao
+         erro = "mais de 20seg não é permitido, ou menos que meio segundo"
+         raise OverflowError(erro)
 
-      # sua configuração:
-      start_color()
-      use_default_colors()
-      curs_set(0)
-      # adicionado captura de tecla.
-      cbreak()
-      self._janela.nodelay(True)
+      # Converte o tempo passado em segundos para miliseg.
+      self._tempo_limite = int(segundos * 1_000)
+      self._acao = acao
+      self._janela = cria_janela_e_a_configura()
       # Iniciando pares de cores que se pode usar na construção.
       definicoes_de_todas_cores()
 
@@ -340,8 +337,10 @@ class Janela(Thread):
          # primeira gravura de marca d'água.
          self._marca_dagua(self._rotulo)
       ...
+      # Objetos que ela contém:
+      self.componentes = []
       self.status = BarraStatus(
-         self._janela, 
+         self._janela,
          [
             Horario(), Debug(),
             AtualAcao(str(self._acao)),
@@ -349,10 +348,9 @@ class Janela(Thread):
             SistemaLigado()
          ]
       )
-      #self.progresso = 
 
-   # encerra programa semi-gráfico.
    def encerra(self):
+      "Encerra a parte semi-gráfica de a janela(o ncurses) em sí."
       napms(self._tempo_limite)
       endwin()
 
@@ -361,7 +359,6 @@ class Janela(Thread):
 
    ref = property(referencia, None, None, None)
 
-   # método formal de limpesa da 'tela'.
    def limpa(self):
       if hasattr(self, "_ciclos"):
          # contabiliza upgrades de tela.
@@ -369,13 +366,16 @@ class Janela(Thread):
       else:
          self._ciclos = 0
 
-      self._janela.erase()
-
       if self._marca_dagua_ativada:
          self._marca_dagua(self._rotulo)
+      # Limpa tela pra redesenho da grade.
+      self._janela.erase()
 
-   # congela limpa de janela por algum tempo.
    def congela(self, segundos):
+      """
+        Ao invés de usar puramente o 'napms', isso aqui faz o mesmo congela
+      por um tempo, um breve tempo, a visualização do que foi redesenhado.
+      """
       # não permitido mais de 3segs e menos de 1/5seg.
       if segundos >= 3 or segundos < 0.2:
          # para pegar as codificações antigas.
@@ -384,33 +384,45 @@ class Janela(Thread):
             ", ou menos que 1/5 de segundo"
          )
       ...
-      # conversão em segundos.
-      t = int(segundos * 1000)
-      napms(t)
-   ...
+      # Conversão em segundos antes de congelar o fluxo por tal tempo.
+      napms(int(segundos * 1.0e3))
 
-   # mostrando que está no modo debug.
    def _marca_dagua(self, mensagem):
       # ciclos do loop infinito.
       (y, x) = self._janela.getmaxyx()
       X = x - len(mensagem) - 2
       Y = y - 2
       self._janela.addstr(Y, X, mensagem, A_BLINK | A_ITALIC)
-   ...
 
    def dimensao(self):
+      """
+      Retorna a dimensão da janela, que é a mesma da tela principal do
+      ncurses
+      """
       return self._janela.getmaxyx()
 
-   def run(self): 
-      # Sai disso, se não tiver dado permissão para tal.
-      while self._atualizacao:
-         self._janela.refresh()
-         self.congela(self._taxa)
-         self.limpa()
-
    def __del__(self):
+      "Operador explicíto para o método 'encerrar', portanto faz o mesmo."
       self.encerra()
 
    def desenha(self):
+      """
+      Desenha componentes da própria janela, assim como objetos externos 
+      adicionados.
+      """
       self.status.desenha()
+      for obj in self.componentes:
+         obj.desenha()
+
+   def renderizar(self):
+      self.desenha()
+      self._janela.refresh()
+      napms(int(1.0 * 1.0e3))
+      self._janela.clear()
+      self._janela.refresh()
+
+   def __iadd__(self, obj):
+      "Método, usando de operador para adicionar componentes externos."
+      self.componentes.append(obj)
+      return self
 ...

@@ -59,15 +59,13 @@ class Ponto:
 
 class BarraProgresso:
    """
-   Desenho da barra de progresso, onde foi
-   demandado, como também na medida desejada. É
-   claro que têm que respeitar o limite da
-   'janela', esta, que tem quer ser passada por
-   referência.
+      Desenho da barra de progresso, onde foi demandado, como também na 
+   medida desejada. É claro que têm que respeitar o limite da 'janela', 
+   esta, que tem quer ser passada por referência.
    """
    PROGRESSO_ATOMO = ' '
-   # atualiza coordenadas baseado no
-   # canto-superior-esquerdo passado:
+
+   # Atualiza coordenadas baseado no canto-superior-esquerdo passado:
    def _ajusta_coordenadas(self) -> None:
       # precisa ter sido criado o atibuto
       # principal, se se, o resto é aplicável;
@@ -83,31 +81,28 @@ class BarraProgresso:
          self._ponto = self._cse
       else:
          raise Exception("coordenada principal não existe!")
-   ...
-   # método construtor:
-   def __init__(self, janela, altura = 4,
-   largura = 50, posicao = Ponto(2, 2),
-   mais_cores=False) -> None:
-      # dimensões passadas têm que ter algum limite:
+
+   def __init__(self, janela, altura = 4, largura = 50, posicao=Ponto(2, 2),
+     mais_cores=False) -> None:
+      # Dimensões passadas têm que ter algum limite:
       if altura < 2 or largura < 20:
          raise curses.error(
             "um tamanho assim, simplesmente não"
             + " carrega/descarrega a barra"
          )
       ...
-      # referência da janeal onde é desenhado
-      # a barra e os demais.
+      # Referência da janeal onde é desenhado a barra e os demais.
       self._janela = janela
-      # dimensão da barra.
+      # Dimensão da barra.
       self._altura = altura
       self._largura = largura
-      # dimensão do canto-superior-esquerdo do objeto.
+      # Dimensão do canto-superior-esquerdo do objeto.
       self._cse = posicao
       self._ajusta_coordenadas()
-      # se quer adicionar o azul, ou demais cores
-      # baseado no percentual do progresso.
+      # Se quer adicionar o azul, ou demais cores baseado no percentual do 
+      # progresso.
       self._maior_escalar_de_cor = mais_cores
-      # verificação do que foi passado acima.
+      # Verificação do que foi passado acima.
       dimensao_objeto = (self._altura, self._largura)
       (argumentos_validos, diferenca) = valida(
          self._cse, dimensao_objeto,
@@ -118,10 +113,10 @@ class BarraProgresso:
             "excede a tela em %d caractéres"
             % diferenca
          )
-      ...
-   ...
-   # desenha a barra.
-   def _desenha_barra(self) -> None:
+      # Atual percentual do progresso que está sendo demonstrado:
+      self.atual_percentual = 0.00
+
+   def _desenha_borda_do_progresso(self) -> None:
       # cuidando dos cantos primeiramente.
       pares = (
          # canto-superior-esquerdo.
@@ -133,15 +128,16 @@ class BarraProgresso:
          # canto-inferior-esquerdo.
          (self._cie, curses.ACS_LLCORNER)
       )
+
       for (ponto, simbolo) in pares:
          (y, x) = (ponto.y, ponto.x)
          self._janela.move(y, x)
          self._janela.addch(simbolo)
-      ...
-      # desenhas barras simultaneamente.
-      # barras superior e inferior:
+
+      # Desenhas barras simultaneamente. Barras superior e inferior:
       x = (self._cse.x+1)
       (y, Y) = (self._cse.y, self._cie.y)
+
       for k in range(self._largura-1):
          # superior:
          self._janela.move(y, x + k)
@@ -149,10 +145,11 @@ class BarraProgresso:
          # inferior:
          self._janela.move(Y, x + k)
          self._janela.addch(curses.ACS_HLINE)
-      ...
+
       # barras esquerda e direita:
       y = (self._cse.y + 1)
       (x, X) = (self._cse.x, self._csd.x)
+
       for k in range(self._altura-1):
          # lateral esquerda:
          self._janela.move(y+k, x)
@@ -160,21 +157,46 @@ class BarraProgresso:
          # lateral direita:
          self._janela.move(y+k, X)
          self._janela.addch(curses.ACS_VLINE)
-      ...
-   ...
-   # toda chamada redenrizar tal.
-   def __call__(self):
-      "renderiza o que foi feito."
-      self._desenha_barra()
-      self._janela.refresh()
-   ...
-   def preenche(self, percentual:float) -> None:
+
+   def desenha(self) -> None:
+      "Escreve figura da barra de progresso na tela do ncurses."
+      self._desenha_borda_do_progresso()
+      self._realiza_preenchimento()
+
+   def _seleciona_uma_cor(self) -> None:
+      percentual = self.atual_percentual
+
+      # coloração depedendo do percentual.
+      if self._maior_escalar_de_cor:
+         if 0.80 < percentual <= 1.0:
+            return 95
+         elif 0.60 < percentual <= 0.80:
+            return 96
+         elif 0.40 < percentual <= 0.60:
+            return 99
+         elif 0.20 < percentual <= 0.40:
+            return 98
+         else:
+            return 97
+      else:
+         if 0.70 < percentual <= 1.0:
+            return 96
+         elif 0.450 < percentual <= 0.70:
+            return 99
+         elif 0.20 < percentual <= 0.450:
+            return 98
+         else:
+            return 97
+
+   def _realiza_preenchimento(self) -> None:
+      percentual = self.atual_percentual
+
       if percentual > 1.0:
          raise OverflowError(
             "tem que ser um valor maior ou igual a 1"
             + ", também, positivo."
          )
-      ...
+
       (_, largura) = self._janela.getmaxyx()
       comprimento = (self._largura - 1)
       # são o mesmo, más para uso genérico 'ponto'
@@ -186,42 +208,22 @@ class BarraProgresso:
       MARGEM_X = 2
       # limite até onde será gerado.
       tarja = int(comprimento * percentual) - MARGEM_X
-      # nova paleta de cores.
-      curses.init_pair(95, curses.COLOR_BLUE, -1)
 
       # desenhando barra em si.
       self._janela.standout()
-      for p in range(self._altura):
+      for p in range(self._altura - 1):
          x = (self._ponto.x + MARGEM_X)
          y = (p + linha)
-         # coloração depedendo do percentual.
-         if self._maior_escalar_de_cor:
-            if 0.80 < percentual <= 1.0:
-               texto_cor = 95
-            elif 0.60 < percentual <= 0.80:
-               texto_cor = 96
-            elif 0.40 < percentual <= 0.60:
-               texto_cor = 99
-            elif 0.20 < percentual <= 0.40:
-               texto_cor = 98
-            else:
-               texto_cor = 97
-         else:
-            if 0.70 < percentual <= 1.0:
-               texto_cor = 96
-            elif 0.450 < percentual <= 0.70:
-               texto_cor = 99
-            elif 0.20 < percentual <= 0.450:
-               texto_cor = 98
-            else:
-               texto_cor = 97
-         ...
+         texto_cor = self._seleciona_uma_cor()
          self._janela.attron(curses.color_pair(texto_cor))
          self._janela.hline(y, x, BarraProgresso.PROGRESSO_ATOMO, tarja)
          self._janela.attroff(curses.color_pair(texto_cor))
       ...
       self._janela.standend()
-   ...
+
+   def atualiza(self, valor: float) -> None:
+      assert (valor >= 0.00 and valor <= 1.00)
+      self.atual_percentual = valor
 ...
 
 class JanelaDebug():
@@ -433,8 +435,43 @@ class BarraProgresso(BarraProgresso):
          case _:
             raise Exception("ainda não implementado")
       ...
-   ...
-...
+
+class BarraMinuto(BarraProgresso):
+   def __init__(self, janela, altura = 4, largura = 50, posicao=Ponto(2, 2)) -> None:
+      super().__init__(janela, altura, largura, posicao, True)
+      self.visibilidade = False
+      self.inicio = None
+      self.contagem_iniciada = False
+
+   def aciona_visibilidade(self):
+      self.visibilidade = True
+
+   # Sobreescrevendo ....
+   def desenha(self) -> None:
+      hora_de_acionar_contagem = (
+         self.visibilidade and
+         (not self.contagem_iniciada) and
+         (self.inicio is None)
+      )
+
+      # Começa a registra a contagem regressiva de um minuto.
+      if hora_de_acionar_contagem:
+         self.inicio = time()
+         self.contagem_iniciada = True
+
+      if self.contagem_iniciada and self.visibilidade:
+         decorrido = time() - self.inicio
+         percentual = 1.0 - decorrido / 60.0
+         self._realiza_preenchimento(percentual)
+
+      # Apenas mostra se tiver sido ativada.
+      if self.visibilidade:
+         super().desenha()
+
+   def centraliza(self):
+      super().centraliza()
+      self.desloca(Direcao.BAIXO, 5)
+
 
 class Classes(unittest.TestCase):
    "teste referentes as classe 'BarraProgresso'"
@@ -745,6 +782,25 @@ class Classes(unittest.TestCase):
          j.encerra()
    ...
 ...
+
+class TesteBarraMinuto(unittest.TestCase):
+   def verificacao_da_barra_minuto(self):
+      janela = JanelaDebug(2.0)
+      # instanciando e visualizando...
+      bar = BarraMinuto(janela.ref)
+
+      # renderizando ambas ...
+      for k in range(1, 30):
+         if int(k) == 15:
+            bar.aciona_visibilidade()
+         percentual = 1.0 - k / 30.0
+         bar.preenche(percentual)
+         bar()
+         janela.congela(0.600)
+         janela.limpa()
+      janela.encerra()
+   ...
+
 
 if __name__ == "__main__":
    unittest.main(verbose=2)

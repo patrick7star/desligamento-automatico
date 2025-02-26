@@ -1,5 +1,5 @@
 """
-   Aqui cuida-se especificamente da parte gráfica do programa. Sera feita 
+   Aqui cuida-se especificamente da parte gráfica do programa. Sera feita
  no 'ncurses' do Python especificamente.
 """
 # o que será exportado:
@@ -7,46 +7,55 @@ __all__ = [ "PROGRESSO_ATOMO", "inicia_grafico", "Acao"]
 
 # Adicionando biblioteca externas na lista de 'importing'.
 from sys import (path as LIB)
-from linque import (caminho_do_projeto_do_programa)
 
-programa_dir = caminho_do_projeto_do_programa()
-biblioteca_externa = programa_dir.joinpath("lib")
+if __name__.endswith("src.graficos"):
+   from .linque import (caminho_do_projeto_do_programa)
 
-if __debug__:
-   print(biblioteca_externa)
-LIB.append(str(biblioteca_externa))
+   programa_dir = caminho_do_projeto_do_programa()
+   biblioteca_externa = programa_dir.joinpath("desligamento-automatico")
+   biblioteca_externa = biblioteca_externa.joinpath("lib")
 
-# biblioteca do Python:
-import curses
-# própria biblioteca:
-from texto_desenho.forma_palavras import forma_string
-#from utilitarios.src.legivel import (tempo as ul_tempo)
-from legivel import (tempo as ul_tempo)
-from tempo import (Temporizador)
-#from utilitarios.src.tempo import (Temporizador)
-# Importes para testes-unitários.
-from unittest import (TestCase, main, skip, skipIf)
-from progresso import (BarraProgresso, Direcao, Ponto)
-from janelas import * 
-from os import get_terminal_size
-from random import randint
+   LIB.append(str(biblioteca_externa))
+   biblioteca_externa = biblioteca_externa.parent
+   biblioteca_externa = biblioteca_externa.joinpath("src")
+   LIB.append(str(biblioteca_externa))
+
+   from lib.texto_desenho.forma_palavras import forma_string
+   from lib.legivel import (tempo as ul_tempo)
+   from lib.tempo import (Temporizador)
+
+   # Biblioteca do Python:
+   import curses
+   # Importes para testes-unitários.
+   from .progresso import (BarraMinuto, BarraProgresso, Direcao, Ponto)
+   from .janelas import *
+else:
+   from linque import (caminho_do_projeto_do_programa)
+
+   programa_dir = caminho_do_projeto_do_programa()
+   biblioteca_externa = programa_dir.joinpath("lib")
+
+   if __debug__:
+      print(biblioteca_externa)
+   LIB.append(str(biblioteca_externa))
+   from texto_desenho.forma_palavras import forma_string
+   from legivel import (tempo as ul_tempo)
+   from tempo import (Temporizador)
+
+   # Biblioteca do Python:
+   import curses
+   # Própria biblioteca:
+   from tempo import (Temporizador)
+   # Importes para testes-unitários.
+   from progresso import (BarraMinuto, BarraProgresso, Direcao, Ponto)
+   from janelas import *
 
 # constantes de personalização.
 PROGRESSO_ATOMO = ' '
 
 # === === === === === === === === === === === === === === === === === === =
 #                       Implementações das Funções
-# === === === === === === === === === === === === === === === === === === = 
-def centralizas_barras(b: BarraProgresso, bm: BarraProgresso) -> None:
-   b.centraliza()
-   b.anexa(Direcao.BAIXO, bm)
-
-   (N, n) = (b.dimensao[1], bm.dimensao[1])
-
-   bm.desloca(Direcao.BAIXO, 2)
-   # computando deslocamento horizontal.
-   bm.desloca(Direcao.DIREITA, (N-n) // 2)
-
+# === === === === === === === === === === === === === === === === === === =
 def controle_do_teclado(janela: curses.window) -> None:
    try:
       code = janela.getch()
@@ -59,10 +68,10 @@ def controle_do_teclado(janela: curses.window) -> None:
       del janela
       raise KeyboardInterrupt("tecla certa 's' foi pressionada")
 
-def inicia_grafico(timer, mensagem_final="desligando", 
+def inicia_grafico(timer, mensagem_final="desligando",
   acao=Acao.Desliga) -> None:
    """
-     A execução de todo o visual do programa, do seu arranjo de tela, até 
+     A execução de todo o visual do programa, do seu arranjo de tela, até
    a animação que ele toca.
    """
    # inclui contagem regressiva no minuto final.
@@ -76,63 +85,49 @@ def inicia_grafico(timer, mensagem_final="desligando",
    outra_barra = timer > MEIA_HORA
 
    (H, L) = janela.dimensao()
-   largura_barra = int(L * 0.70)
-   meio = Ponto((H-5)//2, (L-largura_barra)//2)
-   barra = BarraProgresso(
-      janela.ref, posicao=meio,
-      largura=largura_barra,
-      altura=5
-   )
-   barraminuto = BarraProgresso(
-      janela.ref, altura=3,
-      posicao=(meio + Ponto(5, 0)),
+   barL = int(L * 0.70)
+   (Y, X) = ((H - 5)// 2, (L - barL) // 2)
+   meio = Ponto(Y, X)
+   barra = BarraProgresso(janela.ref, posicao=meio, largura=barL, altura=5)
+   barraminuto = BarraMinuto(
+      janela.ref, altura=3, posicao = (meio + Ponto(5, 0)),
       largura = int(L * 0.70 * 0.70),
-      mais_cores=True
    )
-   # grava dimensão atual da janela.
+   # Grava dimensão atual da janela, e centralização inicial das barras.
    atual_dimensao = janela.dimensao()
-   # centralização inicial.
-   centralizas_barras(barra, barraminuto)
+   barra.centraliza()
+   barraminuto.centraliza()
+
+   # Adiciona objetos extras a janela que os desenha e renderiza.
+   janela += barra
+   janela += barraminuto
+   temporizador_ja_criado = False
 
    while timer():
-      janela.limpa()
       # Qualquer pressionamento de tecla, será tradado na função abaixo.
       controle_do_teclado(janela.ref)
 
-      # centraliza barra se necessário.
       if janela.dimensao() != atual_dimensao:
+         # Centraliza barra se necessário. Também atualiza atual dimensão.
          centralizas_barras(barra, barraminuto)
-         # valor atual foi atualizado.
          atual_dimensao = janela.dimensao()
 
       decorrido = timer.agendado().total_seconds()
       contagem_str = ul_tempo(decorrido, arredonda=True, acronomo=True)
       info_de_tempo(janela.ref, contagem_str)
-      percentual = 1.0 - timer.percentual()
-      barra.preenche(percentual)
-      barra()
-      janela.desenha()
+      barra.atualiza(1.0 - timer.percentual())
 
-      # Troca para o timer de 1min. só se o timer foi marcado com mais de 
+      # Troca para o timer de 1min. só se o timer foi marcado com mais de
       # meia-hora.
       if outra_barra:
-         if (timer < 60) and (not barra_acionada):
+         if timer < 60:
             restante = Temporizador(60)
-            barra_acionada = True
+            barraminuto.aciona_visibilidade()
+            temporizador_ja_criado = True
 
-         elif timer < 60 and barra_acionada:
-            # Barra complementar de um minito mais ou menos.
-            # um percentual decrescente(%).
-            percentual = 1.0 - restante.percentual()
-            barraminuto.preenche(percentual)
-            barraminuto()
-
-         else: 
-            pass
-
-      # Atualização de tela em quase 1min.
-      janela.congela(0.8)
-      janela.limpa()
+      # Desenha janela, e todos objetos incluido nela na inicialização, ou
+      # posteriormente.
+      janela.renderizar()
 
    else:
       janela.limpa()
@@ -194,9 +189,14 @@ def posicao_centralizada(janela, altura, largura):
       (Lt - l) // 2
    )
 
+
 # === === === === === === === === === === === === === === === === === === =
 #                           Testes Unitários
-# === === === === === === === === === === === === === === === === === === = 
+# === === === === === === === === === === === === === === === === === === =
+from os import get_terminal_size
+from random import randint
+from unittest import (TestCase, main, skip, skipIf)
+
 class IniciaGraficos(TestCase):
    """
    testes/e protótipos de vários layouts
@@ -253,14 +253,11 @@ class IniciaGraficos(TestCase):
       centralizas_barras(barra, barraminuto)
 
       while timer():
-         janela.limpa()
-
          # centraliza barra se necessário.
          if janela.dimensao() != atual_dimensao:
             centralizas_barras(barra, barraminuto)
             # valor atual foi atualizado.
             atual_dimensao = janela.dimensao()
-         ...
 
          contagem_str = ul_tempo(
             timer.agendado().total_seconds(),
@@ -270,24 +267,11 @@ class IniciaGraficos(TestCase):
          info_de_tempo(janela.ref, contagem_str)
          percentual = 1.0 - timer.percentual()
          barra.preenche(percentual)
-         barra()
 
-         # troca para o timer de 1min.
-         # só se o timer foi marcado com mais de meia-hora.
-         if outra_barra:
-            if (timer < 60) and (not barra_acionada):
-               restante = Temporizador(60)
-               barra_acionada = True
-            elif timer < 60 and barra_acionada:
-               # barra complementar de um minito mais ou menos.
-               #desenha_barra_complementa(janela)
-               # um percentual decrescente(%).
-               percentual = 1.0 - restante.percentual()
-               #preenche_barra_complementar(janela, percentual)
-               barraminuto.preenche(percentual)
-               barraminuto()
-            ...
-         ...
+         # Renderização ...
+         if timer.percentual() < 0.05:
+            barraminuto.aciona_visibilidade()
+         janela.desenha()
 
          # atualização de tela em quase 1min.
          janela.congela(0.8)
@@ -301,9 +285,8 @@ class IniciaGraficos(TestCase):
          posicao = posicao_centralizada(janela.ref, h, l)
          # desenha em sí o texto-desenhado.
          escreve_no_curses(janela.ref, posicao, texto_matriz)
-         janela.ref.refresh()
-      ...
-   ...
+         janela.renderiza()
+
    def buscandoLayoutIdeal(self):
       janela = JanelaDebug()
       janela.aumenta_tempo_limite(5.1)
@@ -443,6 +426,35 @@ class IniciaGraficos(TestCase):
       ...
       janela.encerra()
    ...
+
+   def simples_carregamento_das_barras(self):
+      screen = Janela(1.2, Janela.TAXA_PADRAO)
+
+      (H, L) = janela.dimensao()
+      l = int(L * 0.70)
+      (Y, X) = ((H - 5)// 2, (L - l) // 2)
+      meio = Ponto(Y, X)
+      barA = BarraProgresso(screen.ref, posicao=meio, largura=barL, altura=5)
+      barB = BarraMinuto(
+         janela.ref, altura=3, posicao = (meio + Ponto(5, 0)),
+         largura = int(L * 0.70 * 0.70),
+      )
+
+      atual_dimensao = screen.dimensao()
+      barA.centraliza()
+      barB.centraliza()
+
+      screen += barra
+      screen += barraminuto
+
+      for p in range(40):
+         if screen.dimensao() != atual_dimensao:
+            centralizas_barras(barA, barB)
+            atual_dimensao = screen.dimensao()
+
+         barA.preenche(100 * (p / 40))
+         barB.preenche(1.0 - (p / 2 / 40))
+         janela.renderizar()
 
 if __name__ == "__main__":
    main(verbose=1)
