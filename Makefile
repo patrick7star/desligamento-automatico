@@ -10,3 +10,7 @@ salva:
 lista-backups:
 	@echo "\nTodas versões salvas:\n"
 	@ls -1 --sort=time -sh ../versões/desligamento-automatico*
+
+# Função apenas funciona na máquina do desenvolvedor:
+importa-libs:
+	@cp -uv $(PYTHON_CODES)/python-utilitarios/lib/tempo.pyc $(PYTHON_CODES)/python-utilitarios/lib/legivel.pyc lib/

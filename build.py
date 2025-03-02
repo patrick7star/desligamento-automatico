@@ -92,7 +92,8 @@ def construcacao_de_biblioteca_virtual_pra_terceiros() -> None:
 
 def instala_dependencias_requisitadas() -> None:
    RAIZ = getenv("PYTHON_CODES")
-   EXECUTAVEL = "{}/alicepylibs/bin/pip".format(RAIZ)
+   LOCAL_LIB = getenv("PYTHON_LOCAL_LIB")
+   EXECUTAVEL = "{}/bin/pip".format(LOCAL_LIB)
    DEPS_ARQ = "requirements.txt"
 
    with open(DEPS_ARQ, "rt", encoding="latin1") as streaming:
@@ -124,7 +125,7 @@ if __name__ == "__main__":
    print(mensagem.format(str(caminho)))
    cria_manifesto_em(caminho)
    print("\n\nInstalações de dependências do programa:")
-   instala_dependencias()
+   instala_dependencias_requisitadas()
 
 # === === === === === === === === === === === === === === === === === === =
 #                           Testes Unitários
