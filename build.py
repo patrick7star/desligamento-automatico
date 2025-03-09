@@ -1,4 +1,4 @@
-#!/bin/python3 -OO
+#!/bin/python3 -OOu
 """
   No momento, tal script serve apenas para gerar o manifesto de todos 
 arquivos, excluindo o diretório de dados, e subdiretórios de cache que 
@@ -15,6 +15,7 @@ from glob import (glob as Glob)
 import unittest
 from os import (getenv)
 from subprocess import (Popen)
+from time import (time, sleep)
 
 
 # === === === === === === === === === === === === === === === === === === =
@@ -78,9 +79,13 @@ def cria_manifesto_em(diretorio: PosixPath) -> None:
 # === === === === === === === === === === === === === === === === === === = 
 def construcacao_de_biblioteca_virtual_pra_terceiros() -> None:
    PY_EXE   = "/usr/bin/python3"
-   NOME_LIB = "alicepylibs"
-   caminho  = PosixPath(getenv("PYTHON_CODES"), NOME_LIB)
+   caminho  = PosixPath(getenv("PYTHON_LOCAL_LIB"))
 
+   # Condições necessárias pra prosseguir:
+   assert (caminho is not None)
+
+   # Se a biblioteca local não existe, criar um ambiente virtual pra uma. Caso
+   # já exista, apenas informa isso e progresso.
    if not caminho.exists():
       comando = Popen([PY_EXE, "-m", "venv", caminho])
       if __debug__:
@@ -90,23 +95,55 @@ def construcacao_de_biblioteca_virtual_pra_terceiros() -> None:
    else:
       print("Biblioteca já existe no repositório local!")
 
+def animacao_de_instalacao(processo: Popen) -> None:
+    """
+    Animação curtinha, que ocupa apenas uma linha, que mostra espera do 
+    processo executado.
+    """
+    status_da_instalacao = processo.returncode
+    inicio = time()
+
+    while status_da_instalacao is None:
+        if time() - inicio > 5.0:
+            break
+
+        print("\rInstalando", end=" ")
+        for _ in range(5):
+           print(".", end="")
+           sleep(0.3)
+        # Limpa escritas sobrepostas.
+        print('\r' + " " * 50, end="")
+        status_da_instalacao = processo.returncode
+    print("finalizado.")
+
 def instala_dependencias_requisitadas() -> None:
-   RAIZ = getenv("PYTHON_CODES")
-   LOCAL_LIB = getenv("PYTHON_LOCAL_LIB")
-   EXECUTAVEL = "{}/bin/pip".format(LOCAL_LIB)
+   FAILED = ""
+   BASE = getenv("PYTHON_LOCAL_LIB")
+
+   EXECUTAVEL = PosixPath(BASE, "bin/pip3")
    DEPS_ARQ = "requirements.txt"
 
    with open(DEPS_ARQ, "rt", encoding="latin1") as streaming:
       for dependencia in streaming:
          partes = dependencia.split("==")
          programa = partes[0]
-         comando = Popen([EXECUTAVEL, "install", programa])
 
-         print("Comando a ser executado: '%s'" % str(comando))
+         print(
+            """Valores das respectivas variáveis:
+            \r\t\b\bExecutável: '{}'
+            \r\t\b\bPrograma: '{}'
+            """.format(EXECUTAVEL, programa)
+         )
+
+         # Formando o comando para execução...
+         comando = Popen([EXECUTAVEL, "install", programa])
+         # Animação de instalação(progresso) rodando...
+         animacao_de_instalacao(comando)
          assert (comando.wait() == 0)
 
 def processo_de_instacao_de_dependencias() -> None:
    construcacao_de_biblioteca_virtual_pra_terceiros()
+   print("\n\nInstalações de dependências do programa:")
    instala_dependencias_requisitadas()
 
 
@@ -124,8 +161,7 @@ if __name__ == "__main__":
 
    print(mensagem.format(str(caminho)))
    cria_manifesto_em(caminho)
-   print("\n\nInstalações de dependências do programa:")
-   instala_dependencias_requisitadas()
+   processo_de_instacao_de_dependencias()
 
 # === === === === === === === === === === === === === === === === === === =
 #                           Testes Unitários
