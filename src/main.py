@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -BOO
+#!/usr/bin/python3 -BO
 
 """
  Execução em sí do programa. Lê do terminal o tempo -- ou sortea ele,
@@ -9,15 +9,12 @@ no fim.
 # Meus módulos:
 from graficos import inicia_grafico
 from janelas import (Acao, )
-#from utilitarios.src.tempo import Temporizador
-from tempo import (Temporizador)
 from historico import grava_historico
 from menu import *
 from notificacao import *
-from modo_texto import inicia_modo_texto
+from modo_texto import (inicia_modo_texto, formatacao_do_tempo_ligado)
 from linque import (caminho_do_script, cria_linque_do_script)
 from tempo_ligado import (tempos_importantes)
-from legivel import (tempo as tempo_legivel)
 # Biblioteca do Python:
 from threading import Thread
 from sys import argv
@@ -26,8 +23,23 @@ from random import randint
 from stat import S_IRWXU, S_IXGRP, S_IXOTH
 from pathlib import PosixPath
 from datetime import (timedelta)
-# biblioteca externa:
-from print_color import print as PrintColorido
+# Minhas Bibliotecas externas:
+try:
+   from externo import (Temporizador, COLORACAO_ATIVADO, PrintColorido)
+   # Nota: A ordem da importação e os possíveis crashs importam. A variável
+   # e a função, podem quebrar, por isso o 'Temporizador' é importado 
+   # primeiro, se fossem o contrário, o lançamento de uma exceção pararia
+   # de importa-lô.
+except NameError:
+   pass
+except ImportError:
+   if __debug__:
+      print("Provavelmente não há uma biblioteca 'print_color'.")
+finally:
+   pass
+# Importação aplicada apenas no modo debug:
+if __debug__:
+   import logging
 
 
 def muda_o_nivel_de_permisao_do_script():
@@ -70,7 +82,7 @@ def stringtime_to_seg(string: str) -> float:
       raise Exception("não implementado para tal")
 
 def mensagemDeInterrupcao(porcentual):
-   "entrega uma formatação de acordo com a cor da barra."
+   "Entrega uma formatação de acordo com a cor da barra."
    # quebra-de-linha normal.
    print('\n')
 
@@ -92,15 +104,18 @@ def mensagemDeInterrupcao(porcentual):
    else:
       intensidade = "bold"
       cor_do_progresso = "red"
-   ...
-   PrintColorido(
-      "parou em {:0.1f}%\n"
-      .format(percentual),
-      tag = "interrupção",
-      tag_color = cor_do_progresso,
-      color = "white",
-      format = "bold"
-   )
+
+   if COLORACAO_ATIVADO:
+      PrintColorido(
+         "Parado em {:0.1f}%.\n"
+         .format(percentual),
+         tag = "interrupção",
+         tag_color = cor_do_progresso,
+         color = "white",
+         format = "bold"
+      )
+   else:
+      print("Parado em {:3.0f}%.".format(percentual))
 
 def avalia_opcoes_passadas_no_terminal():
    try:
@@ -161,14 +176,12 @@ def avalia_opcoes_passadas_no_terminal():
 def aplica_o_processo_de_desligamento():
    # execuntando o comando ...
    if __debug__:
-      import logging
-
       if MODO_SUSPENSAO:
-         print("suspensão acionada.")
+         print("Suspensão acionada.")
          logging.info("o sistema foi suspendido com sucesso.")
       else:
          print("desligamento acionado.")
-         logging.info("o sistema foi desligado com sucesso.")
+         logging.info("O sistema foi desligado com sucesso.")
    else:
       if MODO_SUSPENSAO:
          comando = "systemctl suspend"
@@ -184,17 +197,6 @@ def aplica_o_processo_de_desligamento():
             % (code, comando)
          )
 
-def formatacao_do_tempo_ligado(tempo: timedelta):
-   seg = tempo.total_seconds()
-   traducao = tempo_legivel(seg)
-   RECUO = "\t\b\b\b\b"
-
-   PrintColorido(
-      "\n{}O computador já está ligado por".format(RECUO), 
-      format='bold', color='yellow', end=" "
-   )
-   PrintColorido(traducao, format='underline', color='white', end=' ')
-   PrintColorido("direto.\n", format='bold', color='yellow')
 
 # o filtro e organização dos argumentos do programa acontem aqui:
 args_processados = MENU.parse_args()
@@ -216,13 +218,12 @@ if APENAS_TEMPO_LIGADO:
    formatacao_do_tempo_ligado(t)
 
 else:
-   # grava o comando passado, depois de uma interpletação para o antigo
+   # Grava o comando passado, depois de uma interpletação para o antigo
    # formato:
    comando_formado = converte_para_padrao(args_processados)
    grava_historico([comando_formado])
-   # pós conversão, converte o argumento sem arredondar?
+   # Pós conversão, converte o argumento sem arredondar?
    segundos = stringtime_to_seg(TEMPO_DEMANDADO)
-   # criando temporizador.
    contador = Temporizador(segundos)
 
    avalia_opcoes_passadas_no_terminal()

@@ -1,23 +1,27 @@
-
-
 """
 Processo "gráfico", mas textual, do desligamento ordenado. Cuida de colorir,
 organizar e formatar a visualização da saída.
 """
 
-# biblioteca externa:
-from print_color import print as PrintColorido
-# própria biblioteca:
-#from utilitarios.src.legivel import tempo
-#from utilitarios.src.tempo import (TempoEsgotadoError, Temporizador)
-from legivel import (tempo as Tempo)
-from tempo import (TempoEsgotadoError, Temporizador)
-
 # o que será exportado?
-__all__ = {"inicia_modo_texto"}
+__all__ = {"inicia_modo_texto", "formatacao_do_tempo_ligado"}
+
+# Biblioteca padrão do Python:
+from time import sleep
+from datetime import timedelta
+# Biblioteca externa:
+try:
+   from externo import (COLORACAO_ATIVADO, PrintColorido)
+except: 
+   pass
+finally: 
+   pass
+# Própria biblioteca:
+# Minhas bibliotecas externas:
+from externo import(tempo as tempo_legivel, TempoEsgotadoError, Temporizador)
 
 
-def informacao(timer: Temporizador, o_que_e: str):
+def informacao_colorida(timer: Temporizador, o_que_e: str) -> None:
    porcentual = timer.percentual()
    # percentual em várias formas.
    complemento = 1.0 - porcentual 
@@ -29,7 +33,7 @@ def informacao(timer: Temporizador, o_que_e: str):
    t = timer.agendado().total_seconds()
    p = timer.percentual()
    try:
-      restante_str = Tempo(t - t*p, acronomo = True)
+      restante_str = tempo_legivel(t - t*p, acronomo = True)
    except:
       restante_str = "nenhum"
 
@@ -40,6 +44,26 @@ def informacao(timer: Temporizador, o_que_e: str):
    )
    PrintColorido("{:>9s}".format(restante_str), format="underline")
 ...
+
+def informacao_sem_cor(timer: Temporizador, o_que_e: str) -> None:
+   porcentual = timer.percentual()
+   # Percentual em várias formas.
+   complemento = 1.0 - porcentual 
+   percentual = complemento * 100
+   p = complemento
+
+   # computando tempo restante...
+   t = timer.agendado().total_seconds()
+   p = timer.percentual()
+   try:
+      restante_str = tempo_legivel(t - t*p, acronomo = True)
+   except:
+      restante_str = "nenhum"
+
+   print(
+      "[{}] está em {:>5.1f}%, faltam {:>9s}"
+      .format(o_que_e.center(16), percentual, restante_str)
+   )
 
 def define_cor(p: float) -> str:
    # tipo de coloração.
@@ -61,17 +85,36 @@ def define_cor(p: float) -> str:
    return cor_do_progresso
 ...
 
-from time import sleep
-from datetime import timedelta
 
 def inicia_modo_texto(contador: Temporizador, tipo: str) -> None:
    print("processo de \"%s\" iniciado." % tipo)
 
    try:
       while bool(contador):
-         informacao(contador, tipo)
+         if COLORACAO_ATIVADO:
+            informacao_colorida(contador, tipo)
+         else:
+            informacao_sem_cor(contador, tipo)
          sleep(contador.agendado().total_seconds() / 26)
       ...
    except TempoEsgotadoError:
       pass
 ...
+
+def formatacao_do_tempo_ligado(tempo: timedelta):
+   seg = tempo.total_seconds()
+   traducao = tempo_legivel(seg)
+   RECUO = "\t\b\b\b\b"
+
+   if COLORACAO_ATIVADO:
+      PrintColorido(
+         "\n{}O computador já está ligado por".format(RECUO), 
+         format='bold', color='yellow', end=" "
+      )
+      PrintColorido(traducao, format='underline', color='white', end=' ')
+      PrintColorido("direto.\n", format='bold', color='yellow')
+   else:
+      print(
+         "\n{}O computador já está ligado por {} diretamente."
+         .format(RECUO, traducao), end='\n\n'
+      )
