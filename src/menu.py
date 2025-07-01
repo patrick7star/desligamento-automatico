@@ -9,10 +9,11 @@ __all__ = ["converte_para_padrao", "MENU"]
 
 from argparse import (ArgumentParser, Namespace, SUPPRESS)
 from sys import argv
+from unittest import (TestCase)
 
 MENU = ArgumentParser(
    prog="Desligamento",
-   usage="%(prog)s [opções] <TEMPO>",
+   usage="%(prog)s [opções] <tempo>",
    description="""
    Programa com um contador que agenda em alguns segundos, minutos ou 
    horas o desligamento/ou suspensão do computador. Existe alternativos 
@@ -42,10 +43,11 @@ MENU.add_argument(
 )
 
 MENU.add_argument(
-   "TEMPO", type=str, default="1min",
+   "TEMPO", type=str, default="1min", metavar="XY.Z(h|min|seg)",
    help="""
    o tempo até a 'ação' ser executada. Se não colocado, o valor
-   padrão limita-se entre 10seg à 1min."
+   padrão limita-se entre 10seg à 1min. Alguns exemplos de input são algo
+   do tipo: 53s, 3h, 15min, 5.4h, 36.2min, 17seg"
    """
 )
 
@@ -75,20 +77,30 @@ def converte_para_padrao(argumento: Namespace) -> str:
    return " ".join((nome_do_programa, acao, modo, tempostr))
 ...
 
-if __debug__:
-   resultado = MENU.parse_args()
-   print(
-      "\n\tação: '{}'\n\tmodo: '{}'\n\ttempo: {}"
-      .format(
-         resultado.acao, 
-         resultado.modo, 
-         resultado.TEMPO
-      ),end="\n\n"
-   )
-   print (resultado)
-   comando_para_historico = converte_para_padrao(resultado)
-   print(
-      "conversão para o padrão: '{}'"
-      .format(comando_para_historico)
-   )
-...
+class InfoDoParserBasico(TestCase):
+   def setUp(self):
+      import sys
+
+      sys.argv.append("--acao=suspende")
+      sys.argv.append("--visualizacao=modo-texto")
+
+      print(sys.argv)
+
+   def runTest(self):
+      resultado = MENU.parse_args()
+      comando_para_historico = converte_para_padrao(resultado)
+      print(
+         "\n\tação: '{}'\n\tmodo: '{}'\n\ttempo: {}"
+         .format(
+            resultado.acao, 
+            resultado.modo, 
+            resultado.TEMPO
+         ),end="\n\n"
+      )
+      print (resultado)
+      
+
+      print(
+         "conversão para o padrão: '{}'"
+         .format(comando_para_historico)
+      )

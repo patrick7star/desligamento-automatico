@@ -1,4 +1,4 @@
-#!/usr/bin/python3 -BO
+#!/usr/bin/python3
 
 """
  Execução em sí do programa. Lê do terminal o tempo -- ou sortea ele,

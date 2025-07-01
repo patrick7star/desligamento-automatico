@@ -18,7 +18,10 @@ finally:
    pass
 # Própria biblioteca:
 # Minhas bibliotecas externas:
-from externo import(tempo as tempo_legivel, TempoEsgotadoError, Temporizador)
+from externo import(
+  tempo as tempo_legivel, TempoEsgotadoError, Temporizador,
+  DIA, MES
+)
 
 
 def informacao_colorida(timer: Temporizador, o_que_e: str) -> None:
@@ -101,9 +104,20 @@ def inicia_modo_texto(contador: Temporizador, tipo: str) -> None:
       pass
 ...
 
+def tempo_legivel_mais_detalhado(tempo: timedelta) -> str:
+   segundos = tempo.total_seconds()
+   UMA_SEMANA = 7 * DIA
+
+   if (segundos >= UMA_SEMANA) and (segundos < MES):
+      semanas = segundos / UMA_SEMANA
+      return "%0.2f semanas" % semanas
+   else:
+      seg = tempo.total_seconds()
+      traducao = tempo_legivel(seg)
+      return traducao
+      
 def formatacao_do_tempo_ligado(tempo: timedelta):
-   seg = tempo.total_seconds()
-   traducao = tempo_legivel(seg)
+   traducao = tempo_legivel_mais_detalhado(tempo)
    RECUO = "\t\b\b\b\b"
 
    if COLORACAO_ATIVADO:

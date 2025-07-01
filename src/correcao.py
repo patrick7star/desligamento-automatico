@@ -168,7 +168,6 @@ def complementa(partes: Sequence[Componente]) -> TodasPartes:
    if __debug__:
       print("depois:", completo)
    # tem que chegar aqui com tudo completo.
-   # assert len(completo) == 4
    return sorted(completo, reverse=True)
 ...
 

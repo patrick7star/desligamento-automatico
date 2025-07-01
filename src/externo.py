@@ -45,7 +45,8 @@ if __debug__ and NO_PROPRIO_MODULO:
 
 # Agora, tentando importa para re-exporta tais módulos...
 from legivel import *
-from texto_desenho.forma_palavras import *
+#from texto_desenho.forma_palavras import *
+from utilitarios.texto import (constroi_str as forma_string)
 from tempo import *
 
 if __debug__ and NO_PROPRIO_MODULO:

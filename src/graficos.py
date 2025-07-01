@@ -5,51 +5,17 @@
 # o que será exportado:
 __all__ = [ "PROGRESSO_ATOMO", "inicia_grafico", "Acao"]
 
-# Adicionando biblioteca externas na lista de 'importing'.
-from sys import (path as LIB)
+# Importa biblioteca externa:
+from externo import (tempo as ul_tempo, forma_string, Temporizador)
 # Biblioteca do Python:
 import curses
-
-if __name__.endswith("src.graficos"):
-   from .linque import (caminho_do_projeto_do_programa)
-
-   programa_dir = caminho_do_projeto_do_programa()
-   biblioteca_externa = programa_dir.joinpath("desligamento-automatico")
-   biblioteca_externa = biblioteca_externa.joinpath("lib")
-
-   LIB.append(str(biblioteca_externa))
-   biblioteca_externa = biblioteca_externa.parent
-   biblioteca_externa = biblioteca_externa.joinpath("src")
-   LIB.append(str(biblioteca_externa))
-
-   from lib.texto_desenho.forma_palavras import forma_string
-   from lib.legivel import (tempo as ul_tempo)
-   from lib.tempo import (Temporizador)
-
-   # Importes para testes-unitários.
-   from .progresso import (BarraMinuto, BarraProgresso, Direcao, Ponto)
-   from .janelas import *
-else:
-   from linque import (caminho_do_projeto_do_programa)
-
-   programa_dir = caminho_do_projeto_do_programa()
-   biblioteca_externa = programa_dir.joinpath("lib")
-
-   if __debug__:
-      print(biblioteca_externa)
-   LIB.append(str(biblioteca_externa))
-   from texto_desenho.forma_palavras import forma_string
-   from legivel import (tempo as ul_tempo)
-   from tempo import (Temporizador)
-
-   # Própria biblioteca:
-   from tempo import (Temporizador)
-   # Importes para testes-unitários.
-   from progresso import (BarraMinuto, BarraProgresso, Direcao, Ponto)
-   from janelas import *
+# Próprios módulos do projeto:
+from progresso import (BarraMinuto, BarraProgresso, Direcao, Ponto)
+from janelas import *
 
 # constantes de personalização.
 PROGRESSO_ATOMO = ' '
+
 
 # === === === === === === === === === === === === === === === === === === =
 #                       Implementações das Funções
@@ -131,7 +97,6 @@ def inicia_grafico(timer, mensagem_final="desligando",
       janela.renderizar()
 
    else:
-      janela.limpa()
       # cria texto-desenhado.
       texto_matriz = forma_string(mensagem_final)
       (l, h) = (len(texto_matriz[0]), len(texto_matriz))

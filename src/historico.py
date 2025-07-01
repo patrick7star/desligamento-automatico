@@ -36,7 +36,6 @@ def carrega_historico() -> Historico:
    try:
       with open(CAMINHO_HISTORICO, "rt") as arquivo:
          history = load(arquivo)
-         if __debug__: print("history =", history)
          return history[CHAVE_HISTORICO]
       ...
    except FileNotFoundError:
@@ -124,9 +123,6 @@ def grava_historico(novos: Sequence[str]) -> bool:
 
    # carrega para incrementar.
    antigo_conteudo = carrega_historico()
-
-   if __debug__:
-      print("conteúdo carregado =", antigo_conteudo)
 
    comando = novos[0]
    novos.extend(antigo_conteudo)

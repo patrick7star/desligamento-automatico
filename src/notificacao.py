@@ -1,9 +1,7 @@
-
-
 """
  Dispara notificações do sistema Linux(Ubuntu).
- Usa o próprio programa do sistema para fazer isso,
- tudo via linha de comando, disparado pelo Python.
+ Usa o próprio programa do sistema para fazer isso, tudo via linha de 
+ comando, disparado pelo Python.
 """
 
 from enum import (Enum, auto)
@@ -37,7 +35,6 @@ caminho_do_log = PurePosixPath(
    "/desligamento-automatico" +
    "/data/notificacao.log"
 )
-# assert Path(caminho_do_log).exists()
 
 logging.basicConfig(
    filename=caminho_do_log,
