@@ -6,8 +6,7 @@ from curses import *
 from time import (time as mede_tempo, strftime, gmtime, localtime)
 from enum import (auto, IntEnum, Enum)
 from datetime import (datetime as DT, timedelta)
-#from utilitarios.src.legivel import (tempo as Tempo)
-from legivel import (tempo as Tempo)
+from utilitarios.legivel import (tempo as Tempo)
 from tempo_ligado import *
 
 class Cores(IntEnum):

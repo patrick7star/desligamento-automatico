@@ -44,10 +44,10 @@ if __debug__ and NO_PROPRIO_MODULO:
     pprint.pp(sys.path, indent=4, width=90)
 
 # Agora, tentando importa para re-exporta tais módulos...
-from legivel import *
-#from texto_desenho.forma_palavras import *
+#from legivel import *
+from utilitarios.legivel import *
 from utilitarios.texto import (constroi_str as forma_string)
-from tempo import *
+from utilitarios.tempo import *
 
 if __debug__ and NO_PROPRIO_MODULO:
     pprint.pp(dir(), indent=7, compact=True)
